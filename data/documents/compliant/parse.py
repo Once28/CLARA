@@ -15,7 +15,7 @@ Usage:
     # Parse a single PDF:
     python parse_protocols.py --input ./protocols/NCT03196180_Prot_SAP_000.pdf --output ./parsed
 
-    # Extract only specific sections relevant to 21 CFR Part 11 auditing:
+    # Extract only specific sections relevant to FDA/CFR protocol auditing:
     python parse_protocols.py --input ./protocols --output ./parsed --sections
 
     # Output as JSON (one file per PDF with metadata):
@@ -39,7 +39,7 @@ except ImportError:
     sys.exit(1)
 
 
-# Sections that are most relevant for 21 CFR Part 11 auditing.
+# Sections that are most relevant for FDA/CFR protocol auditing (Part 11, 50, 312, etc.).
 # These keywords are matched against section headings in the protocol.
 REGULATORY_SECTION_KEYWORDS = [
     # Data management and electronic records
@@ -171,7 +171,7 @@ def extract_sections(full_text):
 
 
 def filter_regulatory_sections(sections):
-    """Filter sections to only those relevant to 21 CFR Part 11 auditing."""
+    """Filter sections to only those relevant to FDA/CFR protocol auditing."""
     relevant = []
     for section in sections:
         heading_lower = section["heading"].lower()
@@ -313,7 +313,7 @@ def main():
     parser.add_argument(
         "--sections", "-s",
         action="store_true",
-        help="Extract and filter sections relevant to 21 CFR Part 11 auditing"
+        help="Extract and filter sections relevant to FDA/CFR protocol auditing"
     )
     parser.add_argument(
         "--format", "-f",

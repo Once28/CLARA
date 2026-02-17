@@ -1,13 +1,13 @@
 # Regulatory Intelligence Platform (RIP)
 
-A multi-modal agentic platform built for the MedGemma Impact Challenge. It automates the "Regulatory Cross-Examination" of clinical trial protocols, ensuring alignment with **21 CFR Part 11** and global ethical standards before a single patient is enrolled.
+A multi-modal agentic platform built for the MedGemma Impact Challenge. It automates the "Regulatory Cross-Examination" of clinical trial protocols, ensuring alignment with **21 CFR** (Parts 11, 50, 56, 58, 211, 312, 314, etc.) and **45 CFR Part 46** (Common Rule) before a single patient is enrolled.
 
-**RIP** tackles the critical bottleneck in clinical trials: regulatory compliance checking. By combining Retrieval-Augmented Generation (RAG) with LangGraph's agentic workflow, RIP automates the cross-examination of clinical trial protocols against FDA regulations, freeing researchers to focus on innovation rather than grunt work.
+**RIP** tackles the critical bottleneck in clinical trials: regulatory compliance checking. By combining Retrieval-Augmented Generation (RAG) with LangGraph's agentic workflow, RIP automates the cross-examination of clinical trial protocols against FDA and HHS regulations, freeing researchers to focus on innovation rather than grunt work.
 
 ## Architecture
 
 The platform uses a **two-node agentic workflow**:
-1. **Retrieval Node**: Searches 21 CFR Part 11 regulations for sections relevant to the protocol text
+1. **Retrieval Node**: Searches 21/45 CFR regulations (Part 11, 50, 56, 312, 211, etc.) for sections relevant to the protocol text
 2. **Audit Node**: Uses Google Gemini (or MedGemma) to perform regulatory cross-examination
 
 ```
@@ -53,7 +53,7 @@ Regulatory-Intelligence-Platform/
 ├── nodes.py                # Retrieval and audit node implementations
 ├── state.py                # Agent state schema (TypedDict)
 ├── prompts.py              # System prompts for FDA auditor persona
-├── ecfr_client.py          # eCFR API client for fetching 21 CFR Part 11
+├── ecfr_client.py          # eCFR API client for 21/45 CFR (Parts 11, 50, 56, 312, 211, etc.)
 ├── vector_store.py         # ChromaDB RAG initialization
 ├── requirements.txt        # Python dependencies
 ├── README.md               # This file
@@ -69,7 +69,7 @@ Regulatory-Intelligence-Platform/
 
 ### 1. **app.py** - Main Application
 - Streamlit web UI
-- Fetches 21 CFR Part 11 via eCFR API
+- Fetches multiple CFR parts (11, 46, 50, 56, 58, 211, 312, 314, 45 CFR 46) via eCFR API
 - Initializes RAG system and LLM
 - Orchestrates the audit workflow
 
@@ -92,8 +92,8 @@ AgentState:
 ```
 
 ### 5. **ecfr_client.py** - Regulatory Data
-- Fetches live 21 CFR Part 11 from eCFR.gov API
-- Ensures up-to-date regulatory text
+- Fetches live 21 CFR (Parts 11, 46, 50, 56, 58, 211, 312, 314) and 45 CFR Part 46 from eCFR.gov API
+- Generic `get_part(title, part)` for any CFR title/part
 
 ### 6. **vector_store.py** - RAG System
 - ChromaDB for persistent vector storage
@@ -120,7 +120,7 @@ AgentState:
 ## 🎓 How It Works
 
 1. **User inputs** a clinical trial protocol section via Streamlit
-2. **eCFR Client** fetches the latest 21 CFR Part 11 regulations
+2. **eCFR Client** fetches the latest 21/45 CFR regulations (Part 11, 50, 312, 211, etc.)
 3. **Vector Store** chunks and embeds regulations for semantic search
 4. **Retrieval Node** finds the 5 most relevant regulation sections
 5. **Audit Node** uses Gemini/MedGemma to cross-examine protocol against regulations
@@ -158,7 +158,7 @@ The Regulatory Intelligence Platform (RIP) is structured as a DAG with five logi
 │                                                                             │
 │   ┌──────────────────┐          ┌──────────────────────┐                    │
 │   │ A  eCFR.gov API  │          │ B  User Protocol     │                    │
-│   │    (21 CFR §11)  │          │    (Free-text input)  │                    │
+│   │    (21/45 CFR)   │          │    (Free-text input)  │                    │
 │   └────────┬─────────┘          └──────────┬───────────┘                    │
 └────────────│────────────────────────────────│────────────────────────────────┘
              │ HTTP GET (XML)                 │ Streamlit text_area
@@ -275,7 +275,7 @@ The Regulatory Intelligence Platform (RIP) is structured as a DAG with five logi
 │   │    (st.markdown)         │   │    (st.expander → st.info)    │          │
 │   │    ·······················   │    ····························│          │
 │   │    Content:              │   │    Content:                    │          │
-│   │     • Red Zone risks     │   │     • Top 5 CFR §11 chunks    │          │
+│   │     • Red Zone risks     │   │     • Top 5 CFR chunks         │          │
 │   │     • Missing controls   │   │     • Verbatim regulation     │          │
 │   │     • Recommendations    │   │       text for traceability   │          │
 │   └──────────────────────────┘   └───────────────────────────────┘          │
@@ -298,14 +298,14 @@ The Regulatory Intelligence Platform (RIP) is structured as a DAG with five logi
 
 | Node | Role | File / Source | Output |
 |------|------|---------------|--------|
-| **A** | Live regulatory data from the U.S. Electronic Code of Federal Regulations. Provides the authoritative text of 21 CFR Part 11 (electronic records and signatures). | `ecfr_client.py` → `https://ecfr.gov` | Raw XML string |
+| **A** | Live regulatory data from the U.S. eCFR. Provides 21 CFR Parts 11, 46, 50, 56, 58, 211, 312, 314 and 45 CFR Part 46 (Common Rule). | `ecfr_client.py` → `https://ecfr.gov` | Raw XML string |
 | **B** | User-supplied clinical trial protocol section. Free-text input via the Streamlit UI. This is the document under audit. | `app.py` (Streamlit `text_area`) | `protocol_text: str` |
 
 ### Ingestion & Transformation
 
 | Node | Role | File / Model | Input → Output |
 |------|------|--------------|----------------|
-| **C** | Fetches and extracts raw text from the eCFR XML response. Acts as the data ingestion boundary. | `ecfr_client.py` · `ECFRClient.get_part_11_text()` | HTTP response → `raw_law_text: str` |
+| **C** | Fetches and extracts raw text from the eCFR XML response (multiple CFR parts). Acts as the data ingestion boundary. | `ecfr_client.py` · `ECFRClient.get_part_*()` / `get_part()` | HTTP response → `raw_law_text: str` |
 | **D** | Splits the monolithic regulation text into semantically coherent chunks using recursive character splitting (800-char windows, 80-char overlap). This chunking strategy preserves paragraph-level regulatory meaning. | `vector_store.py` · `RecursiveCharacterTextSplitter` | `str` → `List[Document]` |
 | **E** | Encodes each text chunk into a 384-dimensional dense vector for semantic search. | `vector_store.py` · **Model: `sentence-transformers/all-MiniLM-L6-v2`** | `List[Document]` → vector embeddings |
 
@@ -317,11 +317,11 @@ The Regulatory Intelligence Platform (RIP) is structured as a DAG with five logi
 
 **Ontology definition and usage:**
 
-The ontology is an *implicit semantic ontology* over 21 CFR Part 11, structured as follows:
+The ontology is an *implicit semantic ontology* over 21/45 CFR (Parts 11, 50, 56, 312, 211, etc.), structured as follows:
 
-- **Entities** are regulatory text chunks, each representing a requirement or set of requirements from a specific CFR section (e.g., §11.10 Controls for closed systems, §11.50 Signature manifestations).
-- **Relations** are encoded as vector proximity — chunks that are semantically related (e.g., two sections both addressing audit trail requirements) are near neighbors in embedding space.
-- **Domains** covered: Electronic Records, Electronic Signatures, Audit Trails, System Validation, and Access Controls.
+- **Entities** are regulatory text chunks, each representing a requirement or set of requirements from a specific CFR section (e.g., §11.10, §50.20, §312.32).
+- **Relations** are encoded as vector proximity — chunks that are semantically related (e.g., audit trails, informed consent, IND safety) are near neighbors in embedding space.
+- **Domains** covered: Electronic Records/Signatures, Human Subject Protection, IRBs, GLP, cGMP, IND/NDA, and Access Controls.
 - **Usage**: When the retrieval node receives a protocol snippet, the ontology is queried via cosine similarity to surface the **top 5 most relevant regulatory requirements**. This grounds the audit node's analysis in specific, traceable regulation text rather than relying on the LLM's parametric memory alone.
 
 ### Agentic Processing
