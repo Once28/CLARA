@@ -2,6 +2,8 @@
 
 A multi-modal agentic platform built for the MedGemma Impact Challenge. It automates the "Regulatory Cross-Examination" of clinical trial protocols, ensuring alignment with **21 CFR** (Parts 11, 50, 56, 58, 211, 312, 314, etc.) and **45 CFR Part 46** (Common Rule) before a single patient is enrolled.
 
+![CLARA Website](data/md/website_sample.png)
+
 **CLARA** tackles the critical bottleneck in clinical trials: regulatory compliance checking. By combining Retrieval-Augmented Generation (RAG) with LangGraph's agentic workflow, CLARA automates the cross-examination of clinical trial protocols against FDA and HHS regulations, freeing researchers to focus on innovation rather than grunt work.
 
 ## Architecture
