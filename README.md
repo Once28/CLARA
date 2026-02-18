@@ -29,8 +29,8 @@ User Input (Protocol) → Retrieve Regulations → Audit Against Regulations →
 git clone https://github.com/Once28/Regulatory-Intelligence-Platform.git
 cd Regulatory-Intelligence-Platform
 # virtual environment
-conda create -n rip_env python=3.10 # to create
-conda activate rip_env # to activate
+conda create -n venv python=3.10 # to create
+conda activate venv # to activate
 # install requirements
 pip install -r requirements.txt
 # cp .env.example .env

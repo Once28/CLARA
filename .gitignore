@@ -6,3 +6,9 @@ venv/
 
 data/chroma_db
 
+# Frontend
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+
