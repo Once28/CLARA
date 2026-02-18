@@ -19,7 +19,7 @@ st.title("Clinical Audit & Regulatory Analysis (CLARA)")
 def get_llm():
     # Make sure you have run: ollama run MedAIBase/MedGemma1.5:4b
     return OllamaLLM(
-        model="MedGemma1.5:4b",
+        model="MedAIBase/MedGemma1.5:4b",
         temperature=0.1  # Keep it low for regulatory precision
     )
     
