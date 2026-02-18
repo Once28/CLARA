@@ -27,7 +27,7 @@ export default function Header({ onUploadClick, onCreateClick }) {
             lineHeight: 1,
           }}
         >
-          CLARA
+          CLARA.ai
         </h1>
 
         <button className="btn-outline" onClick={onCreateClick}>
