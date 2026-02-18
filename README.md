@@ -1,4 +1,4 @@
-# Clinical Audit & Regulatory Analysis (CLARA)
+# Clinical Audit & Regulatory Assistant (CLARA)
 
 A multi-modal agentic platform built for the MedGemma Impact Challenge. It automates the "Regulatory Cross-Examination" of clinical trial protocols, ensuring alignment with **21 CFR** (Parts 11, 50, 56, 58, 211, 312, 314, etc.) and **45 CFR Part 46** (Common Rule) before a single patient is enrolled.
 
