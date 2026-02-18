@@ -1,6 +1,8 @@
-# Clinical Audit & Regulatory Analysis (CLARA)
+# Clinical Audit & Regulatory Assistant (CLARA)
 
 A multi-modal agentic platform built for the MedGemma Impact Challenge. It automates the "Regulatory Cross-Examination" of clinical trial protocols, ensuring alignment with **21 CFR** (Parts 11, 50, 56, 58, 211, 312, 314, etc.) and **45 CFR Part 46** (Common Rule) before a single patient is enrolled.
+
+![CLARA Website](data/md/website_sample.png)
 
 **CLARA** tackles the critical bottleneck in clinical trials: regulatory compliance checking. By combining Retrieval-Augmented Generation (RAG) with LangGraph's agentic workflow, CLARA automates the cross-examination of clinical trial protocols against FDA and HHS regulations, freeing researchers to focus on innovation rather than grunt work.
 
@@ -29,8 +31,13 @@ User Input (Protocol) → Retrieve Regulations → Audit Against Regulations →
 git clone https://github.com/Once28/CLARA.git
 cd CLARA
 # virtual environment
+<<<<<<< HEAD
+conda create -n venv python=3.10 # to create
+conda activate venv # to activate
+=======
 conda create -n clara_env python=3.10 # to create
 conda activate clara_env # to activate
+>>>>>>> 18b7afd402bb9bf6b85ce7358ad5580057d1d4f2
 # install requirements
 pip install -r requirements.txt
 # cp .env.example .env
