@@ -1,8 +1,8 @@
-# Regulatory Intelligence Platform (RIP)
+# Clinical Audit & Regulatory Analysis (CLARA)
 
 A multi-modal agentic platform built for the MedGemma Impact Challenge. It automates the "Regulatory Cross-Examination" of clinical trial protocols, ensuring alignment with **21 CFR** (Parts 11, 50, 56, 58, 211, 312, 314, etc.) and **45 CFR Part 46** (Common Rule) before a single patient is enrolled.
 
-**RIP** tackles the critical bottleneck in clinical trials: regulatory compliance checking. By combining Retrieval-Augmented Generation (RAG) with LangGraph's agentic workflow, RIP automates the cross-examination of clinical trial protocols against FDA and HHS regulations, freeing researchers to focus on innovation rather than grunt work.
+**CLARA** tackles the critical bottleneck in clinical trials: regulatory compliance checking. By combining Retrieval-Augmented Generation (RAG) with LangGraph's agentic workflow, CLARA automates the cross-examination of clinical trial protocols against FDA and HHS regulations, freeing researchers to focus on innovation rather than grunt work.
 
 ## Architecture
 
@@ -26,11 +26,11 @@ User Input (Protocol) → Retrieve Regulations → Audit Against Regulations →
 
 ```bash
 # clone repo
-git clone https://github.com/Once28/Regulatory-Intelligence-Platform.git
-cd Regulatory-Intelligence-Platform
+git clone https://github.com/Once28/CLARA.git
+cd CLARA
 # virtual environment
-conda create -n rip_env python=3.10 # to create
-conda activate rip_env # to activate
+conda create -n clara_env python=3.10 # to create
+conda activate clara_env # to activate
 # install requirements
 pip install -r requirements.txt
 # cp .env.example .env
@@ -145,9 +145,9 @@ This project is built for the MedGemma Impact Challenge. Contributions are welco
 
 ---
 
-# RIP System DAG
+# CLARA System DAG
 
-The Regulatory Intelligence Platform (RIP) is structured as a DAG with five logical layers: external data sources, ingestion and transformation, an ontology-backed retrieval layer, agentic processing, and output artifacts. Each node below maps to a specific Python module and model.
+The Clinical Audit & Regulatory Analysis (CLARA) is structured as a DAG with five logical layers: external data sources, ingestion and transformation, an ontology-backed retrieval layer, agentic processing, and output artifacts. Each node below maps to a specific Python module and model.
 
 
 ## DAG Diagram
