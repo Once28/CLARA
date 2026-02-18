@@ -298,7 +298,7 @@ The Clinical Audit & Regulatory Analysis (CLARA) is structured as a DAG with fiv
 
 | Node | Role | File / Source | Output |
 |------|------|---------------|--------|
-| **A** | Live regulatory data from the U.S. eCFR. Provides 21 CFR Parts 11, 46, 50, 56, 58, 211, 312, 314 and 45 CFR Part 46 (Common Rule). | `ecfr_client.py` → `https://ecfr.gov` | Raw XML string |
+| **A** | Live regulatory data from the U.S. eCFR. Provides 21 CFR Parts 11, 50, 56, 58, 211, 312, 314 and 45 CFR Part 46 (Common Rule). | `ecfr_client.py` → `https://ecfr.gov` | Raw XML string |
 | **B** | User-supplied clinical trial protocol section. Free-text input via the Streamlit UI. This is the document under audit. | `app.py` (Streamlit `text_area`) | `protocol_text: str` |
 
 ### Ingestion & Transformation

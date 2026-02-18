@@ -33,11 +33,6 @@ class ECFRClient:
         return ECFRClient.get_part(21, 11, as_of_date)
 
     @staticmethod
-    def get_part_46_text(as_of_date: str = DEFAULT_ECFR_DATE) -> str:
-        """21 CFR Part 46 — Protection of human subjects (FDA)."""
-        return ECFRClient.get_part(21, 46, as_of_date)
-
-    @staticmethod
     def get_part_50_text(as_of_date: str = DEFAULT_ECFR_DATE) -> str:
         """21 CFR Part 50 — Protection of human subjects (informed consent, etc.)."""
         return ECFRClient.get_part(21, 50, as_of_date)
