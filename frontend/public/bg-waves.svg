@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EDE6F6"/>
+      <stop offset="50%" stop-color="#E0D8F0"/>
+      <stop offset="100%" stop-color="#D8D2F0"/>
+    </linearGradient>
+
+    <!-- Wave fills -->
+    <linearGradient id="w1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E8DFF4" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#D4CCF0" stop-opacity="0.5"/>
+    </linearGradient>
+    <linearGradient id="w2" x1="0%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#F0E8FA" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#DDD4F2" stop-opacity="0.4"/>
+    </linearGradient>
+    <linearGradient id="w3" x1="20%" y1="0%" x2="100%" y2="80%">
+      <stop offset="0%" stop-color="#EBE0F8" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#D8CEF0" stop-opacity="0.35"/>
+    </linearGradient>
+    <linearGradient id="w4" x1="0%" y1="20%" x2="100%" y2="80%">
+      <stop offset="0%" stop-color="#F4EEFA" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#E0D6F4" stop-opacity="0.3"/>
+    </linearGradient>
+    <linearGradient id="w5" x1="10%" y1="0%" x2="90%" y2="100%">
+      <stop offset="0%" stop-color="#EDE4F8" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#D6CDF0" stop-opacity="0.25"/>
+    </linearGradient>
+    <linearGradient id="w6" x1="0%" y1="0%" x2="100%" y2="60%">
+      <stop offset="0%" stop-color="#F8F2FC" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#E8E0F6" stop-opacity="0.3"/>
+    </linearGradient>
+
+    <!-- Soft blur filter -->
+    <filter id="softBlur">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="30"/>
+    </filter>
+    <filter id="medBlur">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="18"/>
+    </filter>
+  </defs>
+
+  <!-- Base background -->
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+
+  <!-- Large soft blurred wave blobs for depth -->
+  <g filter="url(#softBlur)" opacity="0.7">
+    <ellipse cx="400" cy="200" rx="800" ry="300" fill="#E8DFF8" opacity="0.5"/>
+    <ellipse cx="1500" cy="700" rx="700" ry="350" fill="#DDD4F4" opacity="0.4"/>
+    <ellipse cx="900" cy="900" rx="900" ry="250" fill="#E4DCF6" opacity="0.35"/>
+  </g>
+
+  <!-- Wave layer 1 - back (top-left to bottom-right, sweeping) -->
+  <path d="M-100,300 C200,180 500,420 800,350 C1100,280 1300,480 1600,380 C1900,280 2020,400 2020,400 L2020,1080 L-100,1080 Z"
+        fill="url(#w1)" filter="url(#medBlur)"/>
+
+  <!-- Wave layer 2 - rises from left -->
+  <path d="M-100,500 C100,380 350,560 650,470 C950,380 1150,550 1450,460 C1750,370 1920,480 2020,450 L2020,1080 L-100,1080 Z"
+        fill="url(#w2)" filter="url(#medBlur)"/>
+
+  <!-- Wave layer 3 - mid flowing -->
+  <path d="M-100,600 C150,520 400,680 700,580 C1000,480 1200,660 1500,570 C1800,480 1920,600 2020,560 L2020,1080 L-100,1080 Z"
+        fill="url(#w3)" filter="url(#medBlur)"/>
+
+  <!-- Wave layer 4 - lighter overlay high -->
+  <path d="M-100,200 C300,100 600,320 900,220 C1200,120 1400,300 1700,200 C2000,100 2020,200 2020,200 L2020,600 C1700,520 1400,680 1100,580 C800,480 500,640 200,560 C-100,480 -100,600 -100,600 Z"
+        fill="url(#w4)" filter="url(#softBlur)"/>
+
+  <!-- Wave layer 5 - very front, subtle -->
+  <path d="M-100,700 C200,640 450,760 750,680 C1050,600 1300,740 1600,670 C1900,600 2020,700 2020,680 L2020,1080 L-100,1080 Z"
+        fill="url(#w5)" filter="url(#medBlur)"/>
+
+  <!-- Wave layer 6 - top shimmer -->
+  <path d="M-100,80 C200,20 500,160 800,100 C1100,40 1400,180 1700,110 C2000,40 2020,100 2020,100 L2020,400 C1700,340 1400,460 1100,380 C800,300 500,420 200,360 C-100,300 -100,400 -100,400 Z"
+        fill="url(#w6)" filter="url(#softBlur)"/>
+
+  <!-- Subtle white highlight streaks -->
+  <g filter="url(#softBlur)" opacity="0.25">
+    <path d="M0,350 Q480,250 960,370 Q1440,490 1920,350" fill="none" stroke="white" stroke-width="80"/>
+    <path d="M0,650 Q480,550 960,670 Q1440,790 1920,650" fill="none" stroke="white" stroke-width="60"/>
+  </g>
+</svg>

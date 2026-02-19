@@ -1,14 +1,14 @@
 import React, { useState, useRef, useEffect } from "react";
 
 const REGULATIONS = [
-  { id: "21-cfr-11",  label: "21 CFR Part 11",  desc: "Electronic Records & Signatures" },
-  { id: "21-cfr-50",  label: "21 CFR Part 50",  desc: "Protection of Human Subjects" },
-  { id: "21-cfr-56",  label: "21 CFR Part 56",  desc: "Institutional Review Boards" },
-  { id: "21-cfr-58",  label: "21 CFR Part 58",  desc: "Good Laboratory Practice" },
-  { id: "21-cfr-211", label: "21 CFR Part 211", desc: "cGMP for Pharmaceuticals" },
-  { id: "21-cfr-312", label: "21 CFR Part 312", desc: "Investigational New Drug (IND)" },
-  { id: "21-cfr-314", label: "21 CFR Part 314", desc: "NDA / ANDA Applications" },
-  { id: "45-cfr-46",  label: "45 CFR Part 46",  desc: "HHS Common Rule" },
+  { id: "21_cfr_11",  label: "21 CFR Part 11",  desc: "Electronic Records & Signatures" },
+  { id: "21_cfr_50",  label: "21 CFR Part 50",  desc: "Protection of Human Subjects" },
+  { id: "21_cfr_56",  label: "21 CFR Part 56",  desc: "Institutional Review Boards" },
+  { id: "21_cfr_58",  label: "21 CFR Part 58",  desc: "Good Laboratory Practice" },
+  { id: "21_cfr_211", label: "21 CFR Part 211", desc: "cGMP for Pharmaceuticals" },
+  { id: "21_cfr_312", label: "21 CFR Part 312", desc: "Investigational New Drug (IND)" },
+  { id: "21_cfr_314", label: "21 CFR Part 314", desc: "NDA / ANDA Applications" },
+  { id: "45_cfr_46",  label: "45 CFR Part 46",  desc: "HHS Common Rule" },
 ];
 
 const LOADING_STEPS = [
@@ -210,7 +210,7 @@ export default function UploadModal({ open, onClose, onUpload, uploading }) {
   // 'form' | 'loading' | 'success'
   const [phase, setPhase] = useState("form");
   const [auditResult, setAuditResult] = useState(null);
-  const [selectedRegs, setSelectedRegs] = useState(new Set(["21-cfr-11", "21-cfr-50", "21-cfr-56"]));
+  const [selectedRegs, setSelectedRegs] = useState(new Set(["21_cfr_11", "21_cfr_50", "21_cfr_56"]));
   const fileInputRef = useRef(null);
 
   if (!open) return null;
@@ -233,7 +233,7 @@ export default function UploadModal({ open, onClose, onUpload, uploading }) {
     if (!file) return;
     setPhase("loading");
     try {
-      const result = await onUpload(file, metadata);
+      const result = await onUpload(file, { ...metadata, regulations: [...selectedRegs].join(",") });
       setAuditResult(result);
       setPhase("success");
     } catch {
@@ -397,10 +397,39 @@ export default function UploadModal({ open, onClose, onUpload, uploading }) {
         <div style={{ marginTop: 20, marginBottom: 24 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)" }}>
-              Audit Against
+              Regulation Requirements
             </div>
-            <div style={{ fontSize: 11, color: "var(--text-faint)" }}>
-              {selectedRegs.size} of {REGULATIONS.length} selected
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedRegs.size === REGULATIONS.length) {
+                    setSelectedRegs(new Set());
+                  } else {
+                    setSelectedRegs(new Set(REGULATIONS.map((r) => r.id)));
+                  }
+                }}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "var(--purple)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                  textDecoration: "underline",
+                  textUnderlineOffset: 2,
+                  opacity: 0.8,
+                  transition: "opacity 0.15s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.8")}
+              >
+                {selectedRegs.size === REGULATIONS.length ? "Deselect all" : "Select all"}
+              </button>
+              <div style={{ fontSize: 11, color: "var(--text-faint)" }}>
+                {selectedRegs.size} of {REGULATIONS.length} selected
+              </div>
             </div>
           </div>
           <div

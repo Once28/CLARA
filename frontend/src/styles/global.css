@@ -45,8 +45,10 @@
 body {
   font-family: var(--font-body);
   color: var(--text-primary);
-  background: var(--bg-gradient);
   min-height: 100vh;
+  background:
+    url('/bg-waves.svg') center center / cover no-repeat fixed,
+    var(--bg-gradient);
 }
 
 /* Scrollbar styling */
