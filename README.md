@@ -31,13 +31,8 @@ User Input (Protocol) → Retrieve Regulations → Audit Against Regulations →
 git clone https://github.com/Once28/CLARA.git
 cd CLARA
 # virtual environment
-<<<<<<< HEAD
 conda create -n venv python=3.10 # to create
 conda activate venv # to activate
-=======
-conda create -n clara_env python=3.10 # to create
-conda activate clara_env # to activate
->>>>>>> 18b7afd402bb9bf6b85ce7358ad5580057d1d4f2
 # install requirements
 pip install -r requirements.txt
 # cp .env.example .env
@@ -393,5 +388,4 @@ B (User Input) ─────────────────────�
 | Model | Node | Purpose |
 |-------|------|---------|
 | `all-MiniLM-L6-v2` (HuggingFace) | E | Text → 384-dim vector embeddings for semantic search |
-| `gemini-1.5-flash` (Google) | H | Regulatory cross-examination and report generation |
-| `medgemma-27b` *(planned)* | H | Domain-specific clinical and regulatory reasoning |
+| `medgemma1.5-4b` | H | Domain-specific clinical and regulatory reasoning |
