@@ -12,4 +12,4 @@ def audit_node(state, llm):
     
     # Simulate LLM call (Replace with medgemma.invoke)
     response = llm.invoke(formatted_prompt)
-    return {"audit_results": response.content}
+    return {"audit_results": response}
