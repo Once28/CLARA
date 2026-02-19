@@ -1,16 +1,17 @@
+# env   
 .env
 __pycache__/
 *.pyc
 .venv/
 venv/
 
+# data
 data/chroma_db
 data/documents/compliant/protocols
 data/documents/non_compliant/protocols
 
-# Frontend
+# frontend
 node_modules/
 frontend/node_modules/
 dist/
 frontend/dist/
-
