@@ -6,6 +6,7 @@ venv/
 
 data/chroma_db
 data/documents/compliant/protocols
+data/documents/non_compliant/protocols
 
 # Frontend
 node_modules/
