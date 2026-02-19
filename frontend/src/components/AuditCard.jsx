@@ -1,9 +1,35 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { StatusDot, DownloadIcon, StatusLegend, formatDate } from "./ui";
+
+const STATUS_ORDER = { critical: 0, warning: 1, pass: 2 };
+const GROUP_LABELS = {
+  critical: "Critical Issues",
+  warning: "Warnings",
+  pass: "Requirements Met",
+};
+const GROUP_COLORS = {
+  critical: "var(--critical)",
+  warning: "var(--warning)",
+  pass: "var(--pass)",
+};
 
 export default function AuditCard({ audit, isActive, onClick }) {
   const scoreColor =
     audit.score >= 80 ? "var(--pass)" : audit.score >= 60 ? "#D4930D" : "var(--critical)";
+
+  // Group breakdown items by status, sorted critical → warning → pass
+  const groupedBreakdown = useMemo(() => {
+    const groups = {};
+    [...audit.breakdown]
+      .sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9))
+      .forEach((item) => {
+        if (!groups[item.status]) groups[item.status] = [];
+        groups[item.status].push(item);
+      });
+    return Object.entries(groups).sort(
+      ([a], [b]) => (STATUS_ORDER[a] ?? 9) - (STATUS_ORDER[b] ?? 9)
+    );
+  }, [audit.breakdown]);
 
   return (
     <div
@@ -77,24 +103,47 @@ export default function AuditCard({ audit, isActive, onClick }) {
         </span>
       </div>
 
-      {/* Breakdown */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 32px" }}>
-        <div style={{ fontSize: 13, fontStyle: "italic", color: "var(--text-muted)", textDecoration: "underline", marginBottom: 6 }}>
-          breakdown
-        </div>
-        <div style={{ fontSize: 13, fontStyle: "italic", color: "var(--text-muted)", textDecoration: "underline", marginBottom: 6 }}>
-          steps to improve
-        </div>
-        {audit.breakdown.map((item, j) => (
-          <React.Fragment key={j}>
-            <div style={{ display: "flex", alignItems: "flex-start", fontSize: 13.5, lineHeight: 1.5, marginBottom: 6 }}>
-              <StatusDot status={item.status} />
-              <span>{item.regulation}</span>
+      {/* Breakdown — grouped by status */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {groupedBreakdown.map(([status, items]) => (
+          <div key={status}>
+            {/* Group header */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              marginBottom: 8,
+            }}>
+              <div style={{
+                width: 8, height: 8, borderRadius: "50%",
+                background: GROUP_COLORS[status],
+                flexShrink: 0,
+              }} />
+              <span style={{
+                fontSize: 12, fontWeight: 700, textTransform: "uppercase",
+                letterSpacing: "0.5px", color: GROUP_COLORS[status],
+              }}>
+                {GROUP_LABELS[status]} ({items.length})
+              </span>
+              <div style={{
+                flex: 1, height: 1,
+                background: `${GROUP_COLORS[status]}22`,
+              }} />
             </div>
-            <div style={{ fontSize: 13, color: "rgba(74,65,112,0.7)", lineHeight: 1.5, marginBottom: 6 }}>
-              {item.note}
+
+            {/* Items in this group */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 28px", paddingLeft: 16 }}>
+              {items.map((item, j) => (
+                <React.Fragment key={j}>
+                  <div style={{ display: "flex", alignItems: "flex-start", fontSize: 13, lineHeight: 1.5, marginBottom: 6 }}>
+                    <StatusDot status={item.status} size={11} />
+                    <span>{item.regulation}</span>
+                  </div>
+                  <div style={{ fontSize: 12.5, color: "rgba(74,65,112,0.65)", lineHeight: 1.5, marginBottom: 6 }}>
+                    {item.note}
+                  </div>
+                </React.Fragment>
+              ))}
             </div>
-          </React.Fragment>
+          </div>
         ))}
       </div>
 

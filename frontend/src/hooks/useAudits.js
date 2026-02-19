@@ -63,6 +63,12 @@ export function useAudits() {
     }
   }, [selectedId, audits]);
 
+  // Clear all audits
+  const clearAll = useCallback(() => {
+    setAudits([]);
+    setSelectedId(null);
+  }, []);
+
   // Derived: currently selected audit object
   const selectedAudit = audits.find((a) => a.id === selectedId) || null;
 
@@ -82,6 +88,7 @@ export function useAudits() {
     setSelectedId,
     uploadProtocol,
     deleteAudit,
+    clearAll,
     refetch: fetchAudits,
   };
 }

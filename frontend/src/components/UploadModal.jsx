@@ -1,12 +1,202 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 
 const REGULATIONS = [
-  { label: "21 CFR Part 11", active: true },
-  { label: "21 CFR Part 50", active: true },
-  { label: "21 CFR Part 56", active: true },
-  { label: "ICH-GCP", active: false },
-  { label: "EMA", active: false },
+  { id: "21-cfr-11",  label: "21 CFR Part 11",  desc: "Electronic Records & Signatures" },
+  { id: "21-cfr-50",  label: "21 CFR Part 50",  desc: "Protection of Human Subjects" },
+  { id: "21-cfr-56",  label: "21 CFR Part 56",  desc: "Institutional Review Boards" },
+  { id: "21-cfr-58",  label: "21 CFR Part 58",  desc: "Good Laboratory Practice" },
+  { id: "21-cfr-211", label: "21 CFR Part 211", desc: "cGMP for Pharmaceuticals" },
+  { id: "21-cfr-312", label: "21 CFR Part 312", desc: "Investigational New Drug (IND)" },
+  { id: "21-cfr-314", label: "21 CFR Part 314", desc: "NDA / ANDA Applications" },
+  { id: "45-cfr-46",  label: "45 CFR Part 46",  desc: "HHS Common Rule" },
 ];
+
+const LOADING_STEPS = [
+  { label: "Uploading document", duration: 1200 },
+  { label: "Parsing protocol sections", duration: 1800 },
+  { label: "Querying regulatory knowledge base", duration: 2200 },
+  { label: "Running compliance analysis", duration: 2400 },
+  { label: "Generating audit report", duration: 1600 },
+];
+
+function LoadingView({ fileName, onComplete }) {
+  const [activeStep, setActiveStep] = useState(0);
+  const [stepProgress, setStepProgress] = useState(0);
+
+  useEffect(() => {
+    if (activeStep >= LOADING_STEPS.length) return;
+
+    const duration = LOADING_STEPS[activeStep].duration;
+    const interval = 30;
+    let elapsed = 0;
+
+    const timer = setInterval(() => {
+      elapsed += interval;
+      setStepProgress(Math.min((elapsed / duration) * 100, 100));
+      if (elapsed >= duration) {
+        clearInterval(timer);
+        if (activeStep < LOADING_STEPS.length - 1) {
+          setActiveStep((s) => s + 1);
+          setStepProgress(0);
+        }
+      }
+    }, interval);
+
+    return () => clearInterval(timer);
+  }, [activeStep]);
+
+  return (
+    <div style={{ textAlign: "center" }}>
+      {/* Animated spinner */}
+      <div style={{ margin: "0 auto 24px", width: 56, height: 56, position: "relative" }}>
+        <svg width="56" height="56" viewBox="0 0 56 56" style={{ animation: "spin 1.8s linear infinite" }}>
+          <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(124,111,191,0.15)" strokeWidth="4" />
+          <circle
+            cx="28" cy="28" r="24" fill="none"
+            stroke="var(--purple)" strokeWidth="4"
+            strokeLinecap="round"
+            strokeDasharray="120 150"
+            style={{ animation: "spin 1.8s linear infinite" }}
+          />
+        </svg>
+      </div>
+
+      <h3 style={{
+        fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700,
+        color: "var(--text-primary)", marginBottom: 6,
+      }}>
+        Analyzing Protocol
+      </h3>
+      <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28 }}>
+        {fileName}
+      </p>
+
+      {/* Step list */}
+      <div style={{ textAlign: "left", maxWidth: 320, margin: "0 auto" }}>
+        {LOADING_STEPS.map((step, i) => {
+          const isComplete = i < activeStep;
+          const isActive = i === activeStep;
+          const isPending = i > activeStep;
+
+          return (
+            <div
+              key={step.label}
+              style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "10px 0",
+                borderBottom: i < LOADING_STEPS.length - 1 ? "1px solid rgba(124,111,191,0.08)" : "none",
+                opacity: isPending ? 0.35 : 1,
+                transition: "opacity 0.4s ease",
+              }}
+            >
+              {/* Icon */}
+              <div style={{
+                width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                background: isComplete ? "var(--pass)" : isActive ? "rgba(124,111,191,0.12)" : "rgba(124,111,191,0.06)",
+                transition: "all 0.3s ease",
+              }}>
+                {isComplete ? (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                    <path d="M5 13l4 4L19 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : isActive ? (
+                  <div style={{
+                    width: 8, height: 8, borderRadius: "50%",
+                    background: "var(--purple)",
+                    animation: "pulse 1s ease-in-out infinite",
+                  }} />
+                ) : (
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(124,111,191,0.2)" }} />
+                )}
+              </div>
+
+              {/* Label + progress */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: 13, fontWeight: isActive ? 600 : 400,
+                  color: isComplete ? "var(--pass)" : isActive ? "var(--text-primary)" : "var(--text-muted)",
+                  transition: "color 0.3s",
+                }}>
+                  {step.label}
+                  {isComplete && " ✓"}
+                </div>
+                {isActive && (
+                  <div style={{
+                    marginTop: 5, height: 3, borderRadius: 2,
+                    background: "rgba(124,111,191,0.1)", overflow: "hidden",
+                  }}>
+                    <div style={{
+                      height: "100%", borderRadius: 2,
+                      background: "var(--purple)",
+                      width: `${stepProgress}%`,
+                      transition: "width 0.05s linear",
+                    }} />
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 24 }}>
+        This may take a moment — please don't close this window
+      </p>
+    </div>
+  );
+}
+
+function SuccessView({ audit, onClose }) {
+  return (
+    <div style={{ textAlign: "center" }}>
+      {/* Checkmark */}
+      <div style={{
+        width: 56, height: 56, borderRadius: "50%", margin: "0 auto 20px",
+        background: "rgba(60,179,113,0.1)", display: "flex",
+        alignItems: "center", justifyContent: "center",
+        animation: "scaleIn 0.35s ease",
+      }}>
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+          <path d="M5 13l4 4L19 7" stroke="var(--pass)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+
+      <h3 style={{
+        fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700,
+        color: "var(--text-primary)", marginBottom: 6,
+      }}>
+        Audit Complete
+      </h3>
+      <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>
+        Your protocol has been analyzed successfully.
+      </p>
+
+      {audit && (
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 8,
+          background: "rgba(124,111,191,0.06)", borderRadius: 12,
+          padding: "10px 20px", marginBottom: 28,
+        }}>
+          <span style={{ fontSize: 28, fontWeight: 700, color: "var(--purple)", fontFamily: "var(--font-display)" }}>
+            {audit.score}
+          </span>
+          <span style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "left", lineHeight: 1.3 }}>
+            Compliance<br />Score
+          </span>
+        </div>
+      )}
+
+      <button
+        className="btn-primary"
+        onClick={onClose}
+        style={{ width: "100%", justifyContent: "center", padding: "13px", fontSize: 15 }}
+      >
+        View Audit Results
+      </button>
+    </div>
+  );
+}
 
 export default function UploadModal({ open, onClose, onUpload, uploading }) {
   const [file, setFile] = useState(null);
@@ -17,6 +207,10 @@ export default function UploadModal({ open, onClose, onUpload, uploading }) {
     phase: "",
     therapeuticArea: "",
   });
+  // 'form' | 'loading' | 'success'
+  const [phase, setPhase] = useState("form");
+  const [auditResult, setAuditResult] = useState(null);
+  const [selectedRegs, setSelectedRegs] = useState(new Set(["21-cfr-11", "21-cfr-50", "21-cfr-56"]));
   const fileInputRef = useRef(null);
 
   if (!open) return null;
@@ -37,15 +231,23 @@ export default function UploadModal({ open, onClose, onUpload, uploading }) {
 
   const handleSubmit = async () => {
     if (!file) return;
+    setPhase("loading");
     try {
-      await onUpload(file, metadata);
-      // Reset and close
-      setFile(null);
-      setMetadata({ title: "", nctId: "", phase: "", therapeuticArea: "" });
-      onClose();
+      const result = await onUpload(file, metadata);
+      setAuditResult(result);
+      setPhase("success");
     } catch {
-      // Error handled by parent hook
+      // Error handled by parent hook — go back to form
+      setPhase("form");
     }
+  };
+
+  const handleClose = () => {
+    setFile(null);
+    setMetadata({ title: "", nctId: "", phase: "", therapeuticArea: "" });
+    setPhase("form");
+    setAuditResult(null);
+    onClose();
   };
 
   const updateMeta = (key, value) =>
@@ -64,7 +266,7 @@ export default function UploadModal({ open, onClose, onUpload, uploading }) {
         zIndex: 100,
         animation: "fadeIn 0.2s ease",
       }}
-      onClick={onClose}
+      onClick={phase === "form" ? handleClose : undefined}
     >
       <div
         style={{
@@ -78,13 +280,25 @@ export default function UploadModal({ open, onClose, onUpload, uploading }) {
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Loading phase */}
+        {phase === "loading" && (
+          <LoadingView fileName={file?.name} />
+        )}
+
+        {/* Success phase */}
+        {phase === "success" && (
+          <SuccessView audit={auditResult} onClose={handleClose} />
+        )}
+
+        {/* Form phase */}
+        {phase === "form" && <>
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
           <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700 }}>
             Upload Protocol
           </h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "#999", lineHeight: 1 }}
           >
             ×
@@ -181,47 +395,97 @@ export default function UploadModal({ open, onClose, onUpload, uploading }) {
 
         {/* Regulation scope */}
         <div style={{ marginTop: 20, marginBottom: 24 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 8 }}>
-            Audit Against
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)" }}>
+              Audit Against
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text-faint)" }}>
+              {selectedRegs.size} of {REGULATIONS.length} selected
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {REGULATIONS.map((reg) => (
-              <span
-                key={reg.label}
-                style={{
-                  padding: "5px 12px",
-                  borderRadius: 20,
-                  fontSize: 12,
-                  fontWeight: 500,
-                  border: `1.5px solid ${reg.active ? "rgba(124,111,191,0.4)" : "rgba(124,111,191,0.15)"}`,
-                  color: reg.active ? "#4A4170" : "rgba(74,65,112,0.35)",
-                  background: reg.active ? "rgba(124,111,191,0.08)" : "transparent",
-                  cursor: reg.active ? "pointer" : "default",
-                }}
-              >
-                {reg.label}
-                {!reg.active && <span style={{ fontSize: 10, marginLeft: 4 }}>soon</span>}
-              </span>
-            ))}
+          <div
+            className="scroll-panel"
+            style={{
+              maxHeight: 152,
+              overflowY: "auto",
+              border: "1.5px solid rgba(124,111,191,0.15)",
+              borderRadius: "var(--radius-sm)",
+              background: "rgba(232,226,244,0.08)",
+            }}
+          >
+            {REGULATIONS.map((reg, i) => {
+              const isSelected = selectedRegs.has(reg.id);
+              return (
+                <div
+                  key={reg.id}
+                  onClick={() => {
+                    setSelectedRegs((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(reg.id)) next.delete(reg.id);
+                      else next.add(reg.id);
+                      return next;
+                    });
+                  }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "9px 12px",
+                    cursor: "pointer",
+                    background: isSelected ? "rgba(124,111,191,0.06)" : "transparent",
+                    borderBottom: i < REGULATIONS.length - 1 ? "1px solid rgba(124,111,191,0.08)" : "none",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = "rgba(124,111,191,0.04)"; }}
+                  onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
+                >
+                  {/* Checkbox */}
+                  <div style={{
+                    width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                    border: `1.5px solid ${isSelected ? "var(--purple)" : "rgba(124,111,191,0.3)"}`,
+                    background: isSelected ? "var(--purple)" : "transparent",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "all 0.15s",
+                  }}>
+                    {isSelected && (
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+                        <path d="M5 13l4 4L19 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </div>
+                  {/* Label */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: 12.5, fontWeight: isSelected ? 600 : 500,
+                      color: isSelected ? "var(--text-primary)" : "var(--text-secondary)",
+                    }}>
+                      {reg.label}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 1 }}>
+                      {reg.desc}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
         {/* Submit */}
         <button
           className="btn-primary"
-          disabled={!file || uploading}
+          disabled={!file || uploading || selectedRegs.size === 0}
           onClick={handleSubmit}
           style={{
             width: "100%",
             justifyContent: "center",
             padding: "13px",
             fontSize: 15,
-            opacity: !file || uploading ? 0.6 : 1,
-            cursor: !file || uploading ? "not-allowed" : "pointer",
+            opacity: !file || uploading || selectedRegs.size === 0 ? 0.6 : 1,
+            cursor: !file || uploading || selectedRegs.size === 0 ? "not-allowed" : "pointer",
           }}
         >
-          {uploading ? "Running Audit..." : "Run Regulatory Audit"}
+          Run Regulatory Audit
         </button>
+        </>}
       </div>
     </div>
   );
