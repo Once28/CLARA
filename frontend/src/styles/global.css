@@ -34,6 +34,19 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
+
+  /* Liquid Glass */
+  --glass-bg: rgba(255, 255, 255, 0.45);
+  --glass-bg-hover: rgba(255, 255, 255, 0.58);
+  --glass-bg-active: rgba(255, 255, 255, 0.65);
+  --glass-blur: 24px;
+  --glass-blur-heavy: 40px;
+  --glass-border: rgba(255, 255, 255, 0.55);
+  --glass-border-top: rgba(255, 255, 255, 0.8);
+  --glass-shadow: 0 8px 32px rgba(107, 98, 160, 0.08), 0 2px 8px rgba(107, 98, 160, 0.04);
+  --glass-shadow-hover: 0 12px 40px rgba(107, 98, 160, 0.14), 0 4px 12px rgba(107, 98, 160, 0.06);
+  --glass-inner-glow: inset 0 1px 1px rgba(255, 255, 255, 0.7), inset 0 -1px 1px rgba(255, 255, 255, 0.1);
+  --glass-specular: linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.0) 50%, rgba(255,255,255,0.05) 100%);
 }
 
 * {
@@ -113,6 +126,76 @@ body {
   opacity: 0;
   animation: fadeSlideIn 0.5s ease forwards;
 }
+
+@keyframes glassShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes specularDrift {
+  0%, 100% { opacity: 0.45; transform: translateX(0) rotate(0deg); }
+  50% { opacity: 0.65; transform: translateX(4px) rotate(0.5deg); }
+}
+
+/* ─── Liquid Glass Surfaces ─── */
+.liquid-glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+  border: 1px solid var(--glass-border);
+  border-top-color: var(--glass-border-top);
+  box-shadow: var(--glass-shadow), var(--glass-inner-glow);
+  position: relative;
+  overflow: hidden;
+}
+
+.liquid-glass::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 50%;
+  background: var(--glass-specular);
+  pointer-events: none;
+  border-radius: inherit;
+  animation: specularDrift 6s ease-in-out infinite;
+}
+
+.liquid-glass-heavy {
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(var(--glass-blur-heavy)) saturate(1.8);
+  -webkit-backdrop-filter: blur(var(--glass-blur-heavy)) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-top-color: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 12px 48px rgba(107, 98, 160, 0.1), 0 2px 12px rgba(107, 98, 160, 0.05), var(--glass-inner-glow);
+  position: relative;
+  overflow: hidden;
+}
+
+.liquid-glass-heavy::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 45%;
+  background: linear-gradient(135deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.0) 60%);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* ─── Liquid Glass Sidebar ─── */
+.sidebar.liquid-glass {
+  border-right: 1px solid rgba(255, 255, 255, 0.4);
+  border-top: none;
+  border-bottom: none;
+  border-left: none;
+}
+
+.sidebar.liquid-glass::before {
+  height: 100%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.0) 40%, rgba(255,255,255,0.08) 100%);
+  animation: none;
+}
+
+
 
 /* Buttons — matching original ClaraDashboard */
 .btn-primary {

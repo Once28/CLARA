@@ -14,13 +14,15 @@ function getWorstStatus(breakdown) {
 export default function Sidebar({ audits, selectedId, onSelect, collapsed, onToggle, onUploadClick }) {
   return (
     <div
-      className="sidebar"
+      className="sidebar liquid-glass"
       style={{
         width: collapsed ? 56 : 260,
         minWidth: collapsed ? 56 : 260,
         height: "100vh",
-        background: "rgba(45,38,80,0.04)",
-        borderRight: "1px solid rgba(124,111,191,0.1)",
+        background: "rgba(255, 255, 255, 0.3)",
+        backdropFilter: "blur(40px) saturate(1.8)",
+        WebkitBackdropFilter: "blur(40px) saturate(1.8)",
+        borderRight: "1px solid rgba(255, 255, 255, 0.4)",
         display: "flex",
         flexDirection: "column",
         transition: "width 0.3s cubic-bezier(0.25,0.46,0.45,0.94), min-width 0.3s cubic-bezier(0.25,0.46,0.45,0.94)",
@@ -28,6 +30,7 @@ export default function Sidebar({ audits, selectedId, onSelect, collapsed, onTog
         position: "sticky",
         top: 0,
         zIndex: 60,
+        boxShadow: "4px 0 24px rgba(107, 98, 160, 0.06), inset -1px 0 0 rgba(255,255,255,0.2)",
       }}
     >
       {/* Logo + collapse toggle */}
@@ -36,7 +39,7 @@ export default function Sidebar({ audits, selectedId, onSelect, collapsed, onTog
         display: "flex",
         alignItems: "center",
         justifyContent: collapsed ? "center" : "space-between",
-        borderBottom: "1px solid rgba(124,111,191,0.1)",
+        borderBottom: "1px solid rgba(255, 255, 255, 0.35)",
         minHeight: 72,
       }}>
         {!collapsed && (
@@ -115,17 +118,20 @@ export default function Sidebar({ audits, selectedId, onSelect, collapsed, onTog
                 padding: collapsed ? "10px 6px" : "10px 12px",
                 borderRadius: "var(--radius-sm)",
                 cursor: "pointer",
-                background: isActive ? "rgba(124,111,191,0.12)" : "transparent",
+                background: isActive ? "rgba(255, 255, 255, 0.45)" : "transparent",
+                backdropFilter: isActive ? "blur(8px)" : "none",
+                WebkitBackdropFilter: isActive ? "blur(8px)" : "none",
                 borderLeft: isActive ? "3px solid var(--purple)" : "3px solid transparent",
                 marginBottom: 2,
-                transition: "all 0.15s ease",
+                transition: "all 0.2s ease",
                 display: "flex",
                 alignItems: collapsed ? "center" : "flex-start",
                 justifyContent: collapsed ? "center" : "flex-start",
                 gap: 10,
+                boxShadow: isActive ? "0 2px 8px rgba(124,111,191,0.06), inset 0 1px 1px rgba(255,255,255,0.5)" : "none",
               }}
               onMouseEnter={(e) => {
-                if (!isActive) e.currentTarget.style.background = "rgba(124,111,191,0.06)";
+                if (!isActive) e.currentTarget.style.background = "rgba(255, 255, 255, 0.25)";
               }}
               onMouseLeave={(e) => {
                 if (!isActive) e.currentTarget.style.background = "transparent";
@@ -176,7 +182,7 @@ export default function Sidebar({ audits, selectedId, onSelect, collapsed, onTog
       {/* Upload button at bottom */}
       <div style={{
         padding: collapsed ? "12px 8px" : "12px 16px",
-        borderTop: "1px solid rgba(124,111,191,0.1)",
+        borderTop: "1px solid rgba(255, 255, 255, 0.35)",
       }}>
         <button
           className="btn-primary"

@@ -258,8 +258,9 @@ export default function UploadModal({ open, onClose, onUpload, uploading }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(44,38,80,0.35)",
-        backdropFilter: "blur(6px)",
+        background: "rgba(44,38,80,0.25)",
+        backdropFilter: "blur(12px) saturate(1.4)",
+        WebkitBackdropFilter: "blur(12px) saturate(1.4)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -269,13 +270,18 @@ export default function UploadModal({ open, onClose, onUpload, uploading }) {
       onClick={phase === "form" ? handleClose : undefined}
     >
       <div
+        className="liquid-glass-heavy"
         style={{
-          background: "white",
+          background: "rgba(255, 255, 255, 0.6)",
+          backdropFilter: "blur(40px) saturate(1.8)",
+          WebkitBackdropFilter: "blur(40px) saturate(1.8)",
           borderRadius: "var(--radius-xl)",
           padding: 40,
           width: 480,
           maxWidth: "90vw",
-          boxShadow: "0 24px 64px rgba(44,38,80,0.2)",
+          boxShadow: "0 24px 80px rgba(44,38,80,0.15), 0 8px 32px rgba(107, 98, 160, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.7)",
+          border: "1px solid rgba(255, 255, 255, 0.55)",
+          borderTopColor: "rgba(255, 255, 255, 0.85)",
           animation: "modalSlide 0.3s ease",
         }}
         onClick={(e) => e.stopPropagation()}
