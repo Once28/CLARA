@@ -259,7 +259,17 @@ async def upload_protocol(
         protocol=protocol_text[:8000],  # Truncate to avoid exceeding context
         regulations=regulations_text,
     )
-    raw_response = _llm.invoke(formatted_prompt)
+    try:
+        raw_response = _llm.invoke(formatted_prompt)
+    except Exception as e:
+        err_msg = str(e)
+        if "Connection refused" in err_msg or "ConnectError" in err_msg:
+            raise HTTPException(
+                503,
+                "Cannot connect to Ollama. Make sure Ollama is running (ollama serve) "
+                "and the MedGemma model is available (ollama run MedAIBase/MedGemma1.5:4b)."
+            )
+        raise HTTPException(500, f"LLM inference failed: {err_msg}")
     logger.info(f"LLM response length: {len(raw_response)} chars")
 
     # 4. Parse structured output

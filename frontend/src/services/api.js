@@ -326,16 +326,57 @@ const mockApi = {
 
 // ─── Live API ────────────────────────────────────────────────
 
+async function apiFetch(url, options = {}) {
+  let res;
+  try {
+    res = await fetch(url, options);
+  } catch (networkErr) {
+    // Browser couldn't reach the server at all
+    if (API_BASE) {
+      throw new Error(
+        `Cannot connect to backend at ${API_BASE}. ` +
+        `Make sure the server is running (uvicorn server:app --port 8000).`
+      );
+    }
+    throw new Error("Network error — check your internet connection.");
+  }
+
+  if (!res.ok) {
+    // Try to extract a meaningful error from the response body
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body.detail || body.message || JSON.stringify(body);
+    } catch {
+      try { detail = await res.text(); } catch { /* ignore */ }
+    }
+
+    // Map common status codes to human-readable messages
+    const statusMessages = {
+      400: `Bad request: ${detail || "check your input"}`,
+      404: `Not found: ${detail || url}`,
+      422: `Validation error: ${detail || "invalid data sent to server"}`,
+      500: `Server error: ${detail || "the backend encountered an internal error (check if Ollama is running)"}`,
+      503: `Service unavailable: ${detail || "the server is still starting up, try again in a moment"}`,
+    };
+
+    throw new Error(
+      statusMessages[res.status] ||
+      `Request failed (${res.status}): ${detail || res.statusText}`
+    );
+  }
+
+  return res;
+}
+
 const liveApi = {
   async listAudits() {
-    const res = await fetch(`${API_BASE}/api/audits`);
-    if (!res.ok) throw new Error(`GET /api/audits failed: ${res.status}`);
+    const res = await apiFetch(`${API_BASE}/api/audits`);
     return res.json();
   },
 
   async getAudit(id) {
-    const res = await fetch(`${API_BASE}/api/audits/${id}`);
-    if (!res.ok) throw new Error(`GET /api/audits/${id} failed: ${res.status}`);
+    const res = await apiFetch(`${API_BASE}/api/audits/${id}`);
     return res.json();
   },
 
@@ -347,17 +388,12 @@ const liveApi = {
         if (v) form.append(k, v);
       });
     }
-    const res = await fetch(`${API_BASE}/api/audits/upload`, { method: "POST", body: form });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`Upload failed (${res.status}): ${text}`);
-    }
+    const res = await apiFetch(`${API_BASE}/api/audits/upload`, { method: "POST", body: form });
     return res.json();
   },
 
   async deleteAudit(id) {
-    const res = await fetch(`${API_BASE}/api/audits/${id}`, { method: "DELETE" });
-    if (!res.ok) throw new Error(`DELETE /api/audits/${id} failed: ${res.status}`);
+    const res = await apiFetch(`${API_BASE}/api/audits/${id}`, { method: "DELETE" });
     return res.json();
   },
 };
