@@ -9,18 +9,20 @@ from ecfr_client import ECFRClient
 from vector_store import initialize_rag
 from graph import create_rip_graph
 
-from langchain_ollama import OllamaLLM
+from medgemma_llm import MedGemmaVertexLLM
 
 # --- Setup ---
 st.title("Clinical Audit & Regulatory Analysis (CLARA)")
 
-#Initialize the Model (Local MedGemma via Ollama)
+# Initialize the Model (MedGemma via Google Cloud Vertex AI Endpoint)
 @st.cache_resource
 def get_llm():
-    # Make sure you have run: ollama run MedAIBase/MedGemma1.5:4b
-    return OllamaLLM(
-        model="MedAIBase/MedGemma1.5:4b",
-        temperature=0.1  # Keep it low for regulatory precision
+    return MedGemmaVertexLLM(
+        project=os.environ["GCP_PROJECT_ID"],
+        location=os.environ.get("GCP_REGION", "europe-west4"),
+        endpoint_id=os.environ["VERTEX_ENDPOINT_ID"],
+        temperature=0.1,  # Keep it low for regulatory precision
+        max_tokens=4096,
     )
     
 # Load multiple CFR parts for protocol audits (Part 11, human subjects, IND, cGMP, etc.)
