@@ -342,9 +342,16 @@ const liveApi = {
   async uploadProtocol(file, metadata) {
     const form = new FormData();
     form.append("file", file);
-    Object.entries(metadata).forEach(([k, v]) => v && form.append(k, v));
+    if (metadata) {
+      Object.entries(metadata).forEach(([k, v]) => {
+        if (v) form.append(k, v);
+      });
+    }
     const res = await fetch(`${API_BASE}/api/audits/upload`, { method: "POST", body: form });
-    if (!res.ok) throw new Error(`POST /api/audits/upload failed: ${res.status}`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Upload failed (${res.status}): ${text}`);
+    }
     return res.json();
   },
 
