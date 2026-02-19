@@ -1,20 +1,12 @@
-# Clinical Audit & Regulatory Assistant (CLARA)
+# CLARA: CLinical Audit & Regulatory Assistant　🩺💜
 
 A multi-modal agentic platform built for the MedGemma Impact Challenge. It automates the "Regulatory Cross-Examination" of clinical trial protocols, ensuring alignment with **21 CFR** (Parts 11, 50, 56, 58, 211, 312, 314, etc.) and **45 CFR Part 46** (Common Rule) before a single patient is enrolled.
 
-![CLARA Pipeline](data/md/CLARA.png)
+![CLARA System Architecture](data/md/CLARA.png)
+<p align="center"><em>Figure 1: CLARA System Architecture</em></p>
+
 
 **CLARA** tackles the critical bottleneck in clinical trials: regulatory compliance checking. By combining Retrieval-Augmented Generation (RAG) with LangGraph's agentic workflow, CLARA automates the cross-examination of clinical trial protocols against FDA and HHS regulations, freeing researchers to focus on innovation rather than grunt work.
-
-## Architecture
-
-The platform uses a **two-node agentic workflow**:
-1. **Retrieval Node**: Searches 21/45 CFR regulations (Part 11, 50, 56, 312, 211, etc.) for sections relevant to the protocol text
-2. **Audit Node**: Uses Google Gemini (or MedGemma) to perform regulatory cross-examination
-
-```
-User Input (Protocol) → Retrieve Regulations → Audit Against Regulations → Compliance Report
-```
 
 ## Getting Started
 
