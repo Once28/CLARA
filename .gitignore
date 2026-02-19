@@ -5,6 +5,7 @@ __pycache__/
 venv/
 
 data/chroma_db
+data/documents/compliant/protocols
 
 # Frontend
 node_modules/
