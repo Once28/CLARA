@@ -67,11 +67,24 @@ elif pasted_text:
     final_protocol_text = pasted_text
     
 if st.button("Run Regulatory Audit"):
-    with st.spinner("MedGemma is cross-examining protocol..."):
+    with st.spinner("MedGemma is auditing..."):
         result = graph.invoke({"protocol_text": final_protocol_text})
-        st.subheader("FDA Compliance Findings")
-        st.markdown(result["audit_results"])
         
-        with st.expander("View Retrieved Regulations"):
-            for reg in result["retrieved_regulations"]:
-                st.info(reg)
+        # --- UI Dashboard ---
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Compliance Score", f"{result['compliance_score']}/100")
+        
+        with col2:
+            color = "green" if result['approval_status'] == "APPROVED" else "orange"
+            st.markdown(f"**Status:** :{color}[{result['approval_status']}]")
+            
+        with col3:
+            st.write(f"**Detected Phase:** {result['study_phase']}")
+
+        st.divider()
+        
+        # Show full report
+        st.subheader("Detailed Auditor Report")
+        st.markdown(result["audit_results"])
