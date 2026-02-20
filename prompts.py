@@ -1,10 +1,12 @@
 AUDIT_PROMPT = """
-You are a Senior FDA Regulatory Auditor. Your task is to perform a high-precision audit of a clinical protocol snippet.
+You are a Senior FDA Regulatory Auditor. Your task is to perform a high-precision audit of a clinical protocol.
 
-### REGULATORY REFERENCE (Retrieved Context)
+Reversed RAG: the UPLOADED PROTOCOL is the knowledge base (chunked and embedded). Each CFR regulation was checked against this protocol index—regulation text as query—to retrieve protocol sections that address it. The context below shows, for each regulation, the regulation excerpt and the protocol sections that were retrieved as relevant.
+
+### REGULATORY REFERENCE (each regulation with protocol sections that address it)
 {context}
 
-### PROTOCOL SNIPPET
+### PROTOCOL (full excerpt)
 {protocol}
 
 ### AUDIT REQUIREMENTS

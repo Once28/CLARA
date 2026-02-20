@@ -1,6 +1,9 @@
+"""
+Reversed RAG: uploaded protocols are the knowledge base (chunked and embedded).
+CFR regulations are used as queries to find which protocol sections address each regulation.
+"""
+
 import os
-import re
-import shutil
 import logging
 
 from langchain_community.vectorstores import Chroma
@@ -11,70 +14,87 @@ from langchain_core.documents import Document
 logger = logging.getLogger(__name__)
 
 CHROMA_DIR = "./data/chroma_db"
+PROTOCOL_COLLECTION = "protocol_chunks"
 
-# Regex to detect the CFR part header injected during startup
-_CFR_HEADER_RE = re.compile(r"<!--\s*(.*?)\s*-->")
+# Lazy singleton for embeddings (shared for protocol indexing and CFR-as-query)
+_embeddings = None
 
 
-def initialize_rag(raw_law_text: str):
-    """Build (or rebuild) a ChromaDB vector store from CFR regulation text.
+def get_embeddings():
+    """Shared HuggingFace embeddings for protocol chunks (KB) and CFR-as-query retrieval."""
+    global _embeddings
+    if _embeddings is None:
+        _embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
+    return _embeddings
 
-    Each chunk is tagged with ``cfr_part`` metadata (e.g. "21 CFR Part 50")
-    so retrieval can be scoped to only the regulations the user selected.
-    Returns the underlying Chroma vector_db (not a retriever) so callers
-    can apply metadata filters at query time.
-    """
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
 
-    # Wipe and rebuild on every startup so we always reflect fresh eCFR data
-    if os.path.exists(CHROMA_DIR):
-        shutil.rmtree(CHROMA_DIR)
-        logger.info("Cleared stale ChromaDB at %s", CHROMA_DIR)
-
-    # ── Split each CFR part separately so we can tag metadata ──
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
+def get_protocol_splitter():
+    """Text splitter for protocol documents."""
+    return RecursiveCharacterTextSplitter(
+        chunk_size=800,
         chunk_overlap=120,
-        separators=["\n\n", "\n", " "],
+        separators=["\n\n", "\n", ". ", " "],
     )
 
-    # Split the combined text on the HTML-comment headers first
-    parts = re.split(r"(\n\n<!-- .+? -->\n)", raw_law_text)
 
-    docs: list[Document] = []
-    current_label = "Unknown"
+def index_protocol(protocol_text: str, persist_directory: str = CHROMA_DIR):
+    """
+    Chunk the uploaded protocol, embed chunks, and store them in Chroma.
 
-    for segment in parts:
-        segment = segment.strip()
-        if not segment:
-            continue
+    The protocol becomes the knowledge base. Each CFR regulation is later
+    checked against this index (regulation text as query) to find which
+    protocol sections address it.
 
-        # Check if this segment is a header like <!-- 21 CFR Part 50 -->
-        header_match = _CFR_HEADER_RE.search(segment)
-        if header_match and len(segment) < 80:
-            current_label = header_match.group(1)
-            continue
+    Uses collection PROTOCOL_COLLECTION; each new upload overwrites the
+    previous protocol index (one protocol at a time).
+    """
+    if not protocol_text or not protocol_text.strip():
+        raise ValueError("protocol_text must be non-empty")
 
-        # Otherwise it's regulation body text — chunk it
-        chunks = splitter.split_text(segment)
-        for chunk in chunks:
-            docs.append(Document(
-                page_content=chunk,
-                metadata={"cfr_part": current_label},
-            ))
+    embeddings = get_embeddings()
+    splitter = get_protocol_splitter()
+    chunks = splitter.split_text(protocol_text.strip())
 
-    logger.info("Split regulation text into %d chunks across CFR parts", len(docs))
-
-    # Log distribution
-    from collections import Counter
-    dist = Counter(d.metadata["cfr_part"] for d in docs)
-    for part, count in dist.most_common():
-        logger.info("  %s: %d chunks", part, count)
+    docs = [
+        Document(page_content=chunk, metadata={"source": "uploaded_protocol"})
+        for chunk in chunks
+    ]
+    logger.info("Split protocol into %d chunks for embedding", len(docs))
 
     vector_db = Chroma.from_documents(
-        docs, embeddings, persist_directory=CHROMA_DIR
+        docs,
+        embeddings,
+        collection_name=PROTOCOL_COLLECTION,
+        persist_directory=persist_directory,
+    )
+    return vector_db
+
+
+def get_protocol_retriever(protocol_vector_db, k: int = 5, fetch_k: int = 20):
+    """
+    Return a retriever over the indexed protocol. CFR regulation text is used
+    as the query to find which protocol chunks address that regulation.
+    """
+    return protocol_vector_db.as_retriever(
+        search_type="mmr",
+        search_kwargs={"k": k, "fetch_k": fetch_k, "lambda_mult": 0.5},
     )
 
-    return vector_db
+
+def query_protocol_for_regulation(protocol_vector_db, regulation_text: str, k: int = 5):
+    """
+    Check if a CFR regulation is addressed in the uploaded protocol: use the
+    regulation text as the query against the protocol index and return the
+    most relevant protocol chunks.
+
+    Returns list of protocol chunk strings (page_content).
+    """
+    query = regulation_text[:4000].strip() if regulation_text else ""
+    if not query:
+        return []
+
+    retriever = get_protocol_retriever(protocol_vector_db, k=k)
+    docs = retriever.invoke(query)
+    return [d.page_content for d in docs]
