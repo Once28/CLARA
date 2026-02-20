@@ -6,9 +6,9 @@ A multi-modal agentic platform built for the MedGemma Impact Challenge. It autom
 <p align="center"><em>Figure 1: CLARA System Architecture</em></p>
 
 
-**CLARA** tackles the critical bottleneck in clinical trials: regulatory compliance checking. By combining **RAG** with an FDA-auditor LLM (MedGemma via Vertex AI), CLARA automates the cross-examination of clinical trial protocols against FDA and HHS regulations.
+**CLARA** tackles the critical bottleneck in clinical trials: regulatory compliance checking. By combining **reversed RAG** with an FDA-auditor LLM (MedGemma via Vertex AI), CLARA automates the cross-examination of clinical trial protocols against FDA and HHS regulations.
 
-### RAG Design
+### Reversed RAG Design
 
 - **Knowledge base:** The **uploaded protocol** is chunked, embedded, and stored in a vector index (Chroma).
 - **Query side:** Each **CFR regulation** (21 CFR Parts 11, 50, 56, 58, 211, 312, 314; 45 CFR Part 46) is used as a query against the protocol index to find which protocol sections address it.
@@ -67,7 +67,7 @@ CLARA/
 ├── state.py                # Agent state schema (TypedDict)
 ├── prompts.py              # System prompts for FDA auditor persona
 ├── ecfr_client.py          # eCFR API client for 21/45 CFR (Parts 11, 50, 56, 312, 211, etc.)
-├── vector_store.py         # RAG: protocol chunks as KB, CFR as query
+├── vector_store.py         # Reversed RAG: protocol chunks as KB, CFR as query
 ├── requirements.txt        # Python dependencies
 ├── README.md               # This file
 ├── WRITEUP.md              # MedGemma Impact Challenge submission
@@ -91,7 +91,7 @@ CLARA/
 
 ### 1. **server.py** - FastAPI Backend (primary)
 - On startup: loads MedGemma (Vertex AI) and fetches CFR parts from eCFR API.
-- On protocol upload: extracts text, chunks and embeds it via `vector_store.index_protocol`, then for each selected CFR regulation runs `query_protocol_for_regulation` (RAG), builds context, and runs the LLM audit with structured output.
+- On protocol upload: extracts text, chunks and embeds it via `vector_store.index_protocol`, then for each selected CFR regulation runs `query_protocol_for_regulation` (reversed RAG), builds context, and runs the LLM audit with structured output.
 
 ### 2. **graph.py** - Workflow Engine
 - Defines LangGraph state machine
@@ -100,7 +100,7 @@ CLARA/
 
 ### 3. **nodes.py** - Processing Nodes (LangGraph / standalone app)
 - **retrieval_node**: Uses a retriever for the graph-based flow.
-- **audit_node**: Performs LLM-based regulatory analysis. The main API flow in `server.py` uses its own RAG path (protocol index + CFR-as-query) and structured prompt.
+- **audit_node**: Performs LLM-based regulatory analysis. The main API flow in `server.py` uses its own reversed RAG path (protocol index + CFR-as-query) and structured prompt.
 
 ### 4. **state.py** - State Management
 ```python
