@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import AuditCard from "./components/AuditCard";
@@ -7,6 +7,60 @@ import SummaryPanel from "./components/SummaryPanel";
 import UploadModal from "./components/UploadModal";
 import { useAudits } from "./hooks/useAudits";
 import "./styles/global.css";
+
+function SplashScreen({ onDone }) {
+  const [phase, setPhase] = useState("in"); // "in" → "hold" → "out"
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase("hold"), 600);
+    const t2 = setTimeout(() => setPhase("out"), 1800);
+    const t3 = setTimeout(onDone, 2400);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [onDone]);
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      background: "var(--bg-gradient)",
+      opacity: phase === "out" ? 0 : 1,
+      transition: "opacity 0.6s ease",
+    }}>
+      <img
+        src="/clara-logo.svg"
+        alt="CLARA"
+        width="80"
+        height="80"
+        style={{
+          animation: "splashLogoIn 0.6s cubic-bezier(0.16,1,0.3,1) forwards",
+          marginBottom: 24,
+        }}
+      />
+      <h1 style={{
+        fontFamily: "'Montserrat', sans-serif",
+        fontSize: 36,
+        fontWeight: 800,
+        letterSpacing: "4px",
+        color: "var(--text-primary)",
+        opacity: 0,
+        animation: "splashTextIn 0.5s ease 0.3s forwards",
+      }}>
+        CLARA.ai
+      </h1>
+      <p style={{
+        fontSize: 13,
+        color: "var(--text-muted)",
+        marginTop: 8,
+        opacity: 0,
+        animation: "splashTextIn 0.5s ease 0.5s forwards",
+        letterSpacing: "0.5px",
+      }}>
+        Clinical Audit &amp; Regulatory Assistant
+      </p>
+    </div>
+  );
+}
 
 export default function App() {
   const {
@@ -24,6 +78,11 @@ export default function App() {
 
   const [showUpload, setShowUpload] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
+
+  if (!splashDone) {
+    return <SplashScreen onDone={() => setSplashDone(true)} />;
+  }
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -87,6 +146,13 @@ export default function App() {
                   border: "1px solid var(--card-border)",
                 }}
               >
+                <img
+                  src="/clara-logo.svg"
+                  alt="CLARA"
+                  width="64"
+                  height="64"
+                  style={{ margin: "0 auto 16px", display: "block", opacity: 0.55 }}
+                />
                 <div style={{ fontSize: 15, color: "var(--text-secondary)", marginBottom: 16 }}>
                   No audits yet. Upload a protocol to get started.
                 </div>

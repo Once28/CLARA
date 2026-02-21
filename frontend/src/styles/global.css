@@ -122,6 +122,17 @@ body {
   to { opacity: 1; transform: scale(1); }
 }
 
+@keyframes splashLogoIn {
+  from { opacity: 0; transform: scale(0.5); }
+  60% { opacity: 1; transform: scale(1.05); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes splashTextIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .stagger-in {
   opacity: 0;
   animation: fadeSlideIn 0.5s ease forwards;

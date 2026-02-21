@@ -47,18 +47,15 @@ function LoadingView({ fileName, onComplete }) {
 
   return (
     <div style={{ textAlign: "center" }}>
-      {/* Animated spinner */}
+      {/* Spinning CLARA logo */}
       <div style={{ margin: "0 auto 24px", width: 56, height: 56, position: "relative" }}>
-        <svg width="56" height="56" viewBox="0 0 56 56" style={{ animation: "spin 1.8s linear infinite" }}>
-          <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(124,111,191,0.15)" strokeWidth="4" />
-          <circle
-            cx="28" cy="28" r="24" fill="none"
-            stroke="var(--purple)" strokeWidth="4"
-            strokeLinecap="round"
-            strokeDasharray="120 150"
-            style={{ animation: "spin 1.8s linear infinite" }}
-          />
-        </svg>
+        <img
+          src="/clara-logo.svg"
+          alt="CLARA"
+          width="56"
+          height="56"
+          style={{ animation: "spin 2.4s linear infinite" }}
+        />
       </div>
 
       <h3 style={{
