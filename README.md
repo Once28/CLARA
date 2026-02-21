@@ -1,5 +1,5 @@
 <h1>
-  <img src="data/md/CLARA.svg" alt="CLARA Logo" width="40" align="center"/>
+  <img src="assets/CLARA.svg" alt="CLARA Logo" width="40" align="center"/>
   CLARA: CLinical Audit & Regulatory Assistant 🩺💜
 </h1>
 
