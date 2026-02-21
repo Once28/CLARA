@@ -21,8 +21,11 @@ from PyPDF2 import PdfReader
 import io
 
 from ecfr_client import ECFRClient
-from vector_store import initialize_rag
-from graph import create_rip_graph
+from vector_store import (
+    index_protocol,
+    query_protocol_for_regulation,
+    get_embeddings,
+)
 from medgemma_llm import MedGemmaVertexLLM
 
 logging.basicConfig(level=logging.INFO)
@@ -55,13 +58,13 @@ REGULATION_MAP = {
 
 # These are populated at startup
 _llm = None
-_vector_db = None  # Chroma vector store (not a retriever — filters applied per request)
-_graph = None
+# Full text of each CFR part (label -> text) for querying protocol and LLM context
+_REGULATION_TEXTS: dict[str, str] = {}
 
 
 @app.on_event("startup")
 async def startup():
-    global _llm, _vector_db, _graph
+    global _llm, _REGULATION_TEXTS
     logger.info("Loading LLM (Vertex AI MedGemma)...")
     _llm = MedGemmaVertexLLM(
         project=os.environ["GCP_PROJECT_ID"],
@@ -71,28 +74,21 @@ async def startup():
         max_tokens=4096,
     )
 
-    logger.info("Fetching eCFR regulations...")
-    law_text_parts = []
+    logger.info("Fetching eCFR regulations (for per-regulation protocol check)...")
     for key, (label, fetcher) in REGULATION_MAP.items():
         try:
-            xml = fetcher()
-            law_text_parts.append(f"\n\n<!-- {label} -->\n{xml}")
+            raw = fetcher()
+            _REGULATION_TEXTS[label] = raw
             logger.info(f"  ✓ {label}")
         except Exception as e:
             logger.warning(f"  ✗ {label}: {e}")
 
-    law_text = "\n".join(law_text_parts) if law_text_parts else ""
-    logger.info("Building vector store...")
-    _vector_db = initialize_rag(law_text)
-
-    logger.info("Compiling LangGraph pipeline...")
-    # Pass a default retriever to the graph (unfiltered, for the standalone pipeline)
-    _default_retriever = _vector_db.as_retriever(
-        search_type="mmr",
-        search_kwargs={"k": 5, "fetch_k": 20, "lambda_mult": 0.5},
+    # Warm embeddings model (used when protocol is uploaded)
+    get_embeddings()
+    logger.info(
+        "CLARA API ready. Reversed RAG: protocols are chunked and embedded on upload; "
+        "each CFR regulation is checked against the protocol index."
     )
-    _graph = create_rip_graph(_default_retriever, _llm)
-    logger.info("CLARA API ready.")
 
 
 # ─── In-memory audit store ────────────────────────────────────
@@ -117,15 +113,18 @@ def compute_score(breakdown: list[dict]) -> int:
 # ─── Structured output prompt ─────────────────────────────────
 
 STRUCTURED_AUDIT_PROMPT = """
-You are an FDA auditor. Audit the protocol below against the listed regulations.
+You are an FDA auditor. The knowledge base is ONLY the UPLOADED PROTOCOL (chunked and embedded). Each CFR regulation was checked against this protocol index: the regulation text was used as the query to retrieve protocol chunks that match. Below, for each regulation you are given: (1) an excerpt of the regulation text, and (2) either the protocol chunks that were found to address it, or "(No matching protocol sections found for this regulation.)". The knowledge consists only of those protocol chunks; regulations are not in the knowledge base.
 
-REGULATORY CONTEXT:
+CRITICAL RULE: For any regulation where the protocol sections say "(No matching protocol sections found for this regulation.)", you MUST set status to "critical" (or at least "warning"). Include in gaps: "Protocol does not address this regulation" and in remediation suggest adding protocol sections that cover this regulation.
+
+REGULATORY CONTEXT (each regulation with the protocol chunks that address it, or no match):
 {context}
 
-PROTOCOL (excerpt):
+FULL PROTOCOL (excerpt for reference):
 {protocol}
 
-REGULATIONS: {regulations}
+REGULATIONS TO AUDIT (you must output exactly one object per regulation below):
+{regulations}
 
 TASK: Produce EXACTLY one JSON object per regulation listed above.
 The total number of objects in the array MUST equal the number of regulations.
@@ -340,6 +339,35 @@ def _merge_duplicate_regulations(items: list[dict]) -> list[dict]:
     return result
 
 
+def _ensure_all_regulations_in_breakdown(
+    breakdown: list[dict],
+    reg_labels: list[str],
+    regulation_to_chunks: dict[str, list[str]],
+) -> list[dict]:
+    """
+    Ensure the breakdown contains exactly one entry per regulation. If the LLM
+    omitted a regulation, add it: use critical when no protocol chunks matched,
+    otherwise warning.
+    """
+    by_reg = {item.get("regulation", "").strip(): item for item in breakdown}
+    result = []
+    for label in reg_labels:
+        if label in by_reg:
+            result.append(by_reg[label])
+        else:
+            has_chunks = bool(regulation_to_chunks.get(label))
+            result.append({
+                "regulation": label,
+                "status": "critical" if not has_chunks else "warning",
+                "note": "Protocol does not address this regulation." if not has_chunks else "No audit finding returned; review manually.",
+                "focus": "Coverage in protocol",
+                "gaps": ["No matching protocol sections."] if not has_chunks else ["Audit output missing for this regulation."],
+                "remediation": ["Add protocol sections that address this regulation."] if not has_chunks else ["Re-run audit or review protocol for this regulation."],
+            })
+            logger.info("Backfilled missing breakdown for %s (no_match=%s)", label, not has_chunks)
+    return result
+
+
 # ─── PDF text extraction ──────────────────────────────────────
 
 def extract_text_from_pdf(contents: bytes) -> str:
@@ -384,8 +412,8 @@ async def upload_protocol(
     sponsor: Optional[str] = Form(None),
     regulations: Optional[str] = Form(None),  # comma-separated reg keys
 ):
-    """Upload a protocol PDF, run the audit pipeline, return structured results."""
-    if _graph is None or _vector_db is None:
+    """Upload a protocol PDF; chunk and embed it, then check each CFR regulation against the protocol and run the audit."""
+    if _llm is None or not _REGULATION_TEXTS:
         raise HTTPException(503, "Pipeline not initialized yet — server is still starting up.")
 
     # 1. Extract text
@@ -398,47 +426,47 @@ async def upload_protocol(
     if not protocol_text.strip():
         raise HTTPException(400, "Could not extract any text from the uploaded file.")
 
-    # 2. Determine which regulations to audit against
-    if regulations:
-        reg_keys = [r.strip() for r in regulations.split(",")]
-    else:
-        reg_keys = list(REGULATION_MAP.keys())
-
-    reg_labels = [REGULATION_MAP[k][0] for k in reg_keys if k in REGULATION_MAP]
+    # 2. Always check every loaded CFR regulation (ignore form selection; audit all)
+    reg_labels = [
+        REGULATION_MAP[k][0] for k in REGULATION_MAP
+        if REGULATION_MAP[k][0] in _REGULATION_TEXTS
+    ]
     regulations_text = ", ".join(reg_labels)
 
-    # 3. Run retrieval + LLM audit via the LangGraph pipeline
-    logger.info(f"Running audit for '{file.filename}' against: {regulations_text}")
+    # 3. Index the uploaded protocol (chunk + embed) so we can query by regulation
+    logger.info("Chunking and embedding uploaded protocol...")
+    protocol_vector_db = index_protocol(protocol_text)
 
-    # Retrieval step — search only within the selected regulations
-    # Build a Chroma metadata filter for the user's regulation selection
-    if len(reg_labels) == 1:
-        where_filter = {"cfr_part": reg_labels[0]}
-    else:
-        where_filter = {"cfr_part": {"$in": reg_labels}}
-
-    filtered_retriever = _vector_db.as_retriever(
-        search_type="mmr",
-        search_kwargs={
-            "k": min(3 * len(reg_labels), 15),  # ~3 chunks per regulation
-            "fetch_k": min(8 * len(reg_labels), 40),
-            "lambda_mult": 0.5,
-            "filter": where_filter,
-        },
-    )
-    docs = filtered_retriever.invoke(protocol_text[:3000])  # query with start of protocol
-    retrieved_regulations = [d.page_content for d in docs]
-    context = "\n\n".join(retrieved_regulations)
-    logger.info("Retrieved %d regulation chunks for: %s", len(docs), regulations_text)
-
-    # Build retrieved sections for the frontend
+    # 4. For each CFR regulation, query the protocol index to find which protocol sections address it
+    logger.info("Checking each selected CFR regulation against the protocol...")
+    regulation_to_chunks: dict[str, list[str]] = {}
     retrieved_sections = []
-    for i, doc in enumerate(docs):
-        cfr_label = doc.metadata.get("cfr_part", "Unknown")
-        snippet = doc.page_content[:80].replace("\n", " ").strip()
-        retrieved_sections.append(f"[{cfr_label}] {snippet}...")
 
-    # Audit step — use structured prompt
+    for label in reg_labels:
+        reg_text = _REGULATION_TEXTS.get(label, "")
+        if not reg_text:
+            continue
+        chunks = query_protocol_for_regulation(protocol_vector_db, reg_text, k=5)
+        regulation_to_chunks[label] = chunks
+        for c in chunks:
+            snippet = (c[:80].replace("\n", " ") + "...") if len(c) > 80 else c.replace("\n", " ")
+            retrieved_sections.append(f"[{label}] {snippet}")
+
+    # Build context: for each regulation, show regulation text + protocol excerpts that address it
+    context_parts = []
+    for label in reg_labels:
+        reg_text = _REGULATION_TEXTS.get(label, "")
+        chunks = regulation_to_chunks.get(label, [])
+        # Truncate regulation for context window; include all retrieved protocol chunks for this reg
+        reg_excerpt = (reg_text[:3500] + "...") if len(reg_text) > 3500 else reg_text
+        protocol_excerpts = "\n\n".join(chunks) if chunks else "(No matching protocol sections found for this regulation.)"
+        context_parts.append(
+            f"### {label}\n\n**Regulation (excerpt):**\n{reg_excerpt}\n\n**Protocol sections addressing this regulation:**\n{protocol_excerpts}"
+        )
+    context = "\n\n---\n\n".join(context_parts)
+    logger.info("Built context for %d regulations with protocol-matched sections", len(reg_labels))
+
+    # 5. Audit step — use structured prompt (context = per-regulation + protocol sections that address it)
     formatted_prompt = STRUCTURED_AUDIT_PROMPT.format(
         context=context,
         protocol=protocol_text[:8000],  # Truncate to avoid exceeding context
@@ -464,6 +492,9 @@ async def upload_protocol(
     # 4b. Merge duplicate regulation entries (e.g. if LLM split Part 50 into 20 objects)
     breakdown = _merge_duplicate_regulations(breakdown)
 
+    # 4c. Ensure every regulation has an entry; backfill missing as critical
+    breakdown = _ensure_all_regulations_in_breakdown(breakdown, reg_labels, regulation_to_chunks)
+
     # 5. Compute score
     score = compute_score(breakdown)
 
@@ -477,9 +508,9 @@ async def upload_protocol(
         "phase": phase or "Unknown",
         "score": score,
         "queryDescription": (
-            f"Regulatory nodes were matched against \"{title or file.filename}\" protocol content "
-            f"using semantic similarity scoring against: {regulations_text}. "
-            f"Retrieved {len(docs)} relevant sections."
+            f"Reversed RAG: protocol \"{title or file.filename}\" was chunked and embedded as the knowledge base. "
+            f"Each CFR regulation ({regulations_text}) was checked against the protocol index; "
+            f"retrieved protocol sections were used for the audit."
         ),
         "retrievedSections": retrieved_sections,
         "breakdown": breakdown,
@@ -497,6 +528,6 @@ async def upload_protocol(
 async def health():
     return {
         "status": "ok",
-        "pipeline_ready": _graph is not None,
+        "pipeline_ready": _llm is not None and len(_REGULATION_TEXTS) > 0,
         "audits_count": len(_audits),
     }
