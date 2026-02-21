@@ -63,7 +63,8 @@ The React frontend connects to the backend at `http://localhost:8000` (configure
 
 ```
 CLARA/
-├── server.py               # FastAPI backend (serves the React frontend)
+├── app.py                  # CLARA backend entry point
+├── server.py               # FastAPI server wrapping the existing CLARA pipeline
 ├── graph.py                # LangGraph workflow definition
 ├── nodes.py                # Retrieval and audit node implementations
 ├── state.py                # Agent state schema (TypedDict)
@@ -81,12 +82,9 @@ CLARA/
 │   │   ├── services/       # API client (api.js)
 │   │   └── styles/         # Global CSS
 │   └── package.json
-├── data/
-│   ├── chroma_db/          # Persistent vector database
-│   └── documents/          # Sample protocols (compliant & non-compliant)
-└── test/
-    ├── pipeline.ipynb      # Development testing notebook
-    └── medgamma.ipynb      # MedGemma integration experiments
+└── data/
+    ├── chroma_db/          # Persistent vector database
+    └── documents/          # Sample protocols (compliant & non-compliant)
 ```
 
 ## 🔧 Core Components

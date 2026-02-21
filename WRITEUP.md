@@ -77,7 +77,7 @@ The technical details will cover the technology stack, product feasibility throu
 | **Frontend** | React | Interactive web interface for protocol upload and report viewing |
 | **Orchestration** | LangGraph + LangChain | Multi-agent workflow with stateful graph execution |
 | **Vector Store** | ChromaDB (persistent) | Stores embeddings of regulatory documents for semantic retrieval |
-| **Embeddings** | MedSigLIP / all-MiniLM-L6-v2 | Domain-aware and general-purpose vector representations (A/B) |
+| **Embeddings** | MedSigLIP / all-MiniLM-L6-v2 / EmbeddingGemma | Domain-aware and general-purpose vector representations (A/B) |
 | **LLM** | MedGemma 1.5 4B-IT (Vertex AI) | Powers compliance reasoning and report generation |
 | **Document Processing** | PyPDF / custom parsers | Extracts and chunks clinical trial protocols and regulatory PDFs |
 | **Language** | Python 3.11+ | Core application logic |
