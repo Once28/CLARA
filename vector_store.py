@@ -5,10 +5,10 @@ CFR regulations are used as queries to find which protocol sections address each
 
 import os
 import logging
+from transformers import AutoModel, AutoTokenizer
 from typing import List
 
 import torch
-from transformers import AutoModel, AutoTokenizer
 from langchain_core.embeddings import Embeddings
 from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings  # kept for optional swap
@@ -18,42 +18,56 @@ from langchain_core.documents import Document
 logger = logging.getLogger(__name__)
 
 
-# ─── MedSigLIP text-encoder wrapper ──────────────────────────
-# NOTE: MedSigLIP is a contrastive vision-language model. Its text encoder
-# is optimised for image↔text alignment, NOT text↔text retrieval. Using it
-# here is experimental; a dedicated sentence-embedding model (see commented-
-# out option below) will generally produce better RAG recall.
+# ─── MedSigLIP / SigLIP text-encoder wrapper ──────────────────
+# Set EMBEDDING_MODEL=medsiglip to use this. MedSigLIP/SigLIP are
+# vision-language models; the text encoder is used for text↔text retrieval
+# here (experimental). For production RAG, sentence-transformers usually give
+# better recall.
 
 class MedSigLIPTextEmbeddings(Embeddings):
-    """LangChain Embeddings wrapper around MedSigLIP's text encoder."""
+    """LangChain Embeddings wrapper around SigLIP/MedSigLIP text encoder."""
 
-    def __init__(self, model_name: str = "google/siglip-base-patch16-256"):
-        # MedSigLIP shares the SigLIP architecture; swap model_name to the
-        # specific MedSigLIP checkpoint once you have gated access, e.g.
-        #   "google/medsiglip-base-patch16-256"
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModel.from_pretrained(model_name)
+    def __init__(self, model_name: str = "google/siglip-base-patch16-224"):
+        from transformers import SiglipProcessor, SiglipModel
+
+        self.processor = SiglipProcessor.from_pretrained(model_name)
+        self.model = SiglipModel.from_pretrained(model_name)
         self.model.eval()
-        logger.info("Loaded MedSigLIP text encoder: %s", model_name)
+        self._max_length = min(
+            getattr(self.processor.tokenizer, "model_max_length", 64),
+            64,
+        )
+        logger.info("Loaded SigLIP/MedSigLIP text encoder: %s (max_length=%d)", model_name, self._max_length)
 
     def _embed(self, texts: List[str]) -> List[List[float]]:
-        """Tokenize and encode a batch of texts, returning L2-normalised vectors."""
-        inputs = self.tokenizer(
-            texts,
+        """Tokenize and encode a batch of texts, return L2-normalised vectors."""
+        # Processor returns input_ids, attention_mask; for text-only no pixel_values
+        inputs = self.processor(
+            text=texts,
             padding="max_length",
             truncation=True,
-            max_length=64,  # SigLIP-base max_position_embeddings = 64 tokens
+            max_length=self._max_length,
             return_tensors="pt",
         )
+        # SiglipModel accepts input_ids, attention_mask; pixel_values optional
         with torch.no_grad():
-            outputs = self.model.get_text_features(**inputs)  # (batch, dim)
-        # L2-normalise so cosine similarity = dot product (Chroma default)
-        embeddings = torch.nn.functional.normalize(outputs, dim=-1)
+            outputs = self.model(
+                input_ids=inputs["input_ids"],
+                attention_mask=inputs.get("attention_mask"),
+            )
+
+        if hasattr(outputs, "text_embeds") and outputs.text_embeds is not None:
+            embeds = outputs.text_embeds
+        elif hasattr(outputs, "pooler_output"):
+            embeds = outputs.pooler_output
+        else:
+            embeds = outputs.last_hidden_state[:, 0, :]
+
+        embeddings = torch.nn.functional.normalize(embeds, dim=-1)
         return embeddings.cpu().tolist()
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        # Batch to avoid OOM — SigLIP base is ~813 MB
-        batch_size = 64
+        batch_size = 32
         all_embeddings: List[List[float]] = []
         for i in range(0, len(texts), batch_size):
             all_embeddings.extend(self._embed(texts[i : i + batch_size]))
@@ -68,50 +82,38 @@ PROTOCOL_COLLECTION = "protocol_chunks"
 # Lazy singleton for embeddings (shared for protocol indexing and CFR-as-query)
 _embeddings = None
 
+# Env: "medsiglip" | "siglip" => MedSigLIPTextEmbeddings; else HuggingFace (default)
+EMBEDDING_MODEL_ENV = "EMBEDDING_MODEL"
+MEDSIGLIP_MODEL_ENV = "MEDSIGLIP_MODEL_NAME"  # e.g. google/siglip-base-patch16-224
 
-def get_embeddings():
-    """Shared HuggingFace embeddings for protocol chunks (KB) and CFR-as-query retrieval."""
+
+def get_embeddings(force_reset: bool = False):
+    """
+    Return the shared embeddings instance. Choice is driven by env EMBEDDING_MODEL:
+    - "medsiglip" or "siglip" => MedSigLIPTextEmbeddings (SigLIP text encoder)
+    - else => HuggingFaceEmbeddings (sentence-transformers/all-MiniLM-L6-v2)
+    """
     global _embeddings
+    if force_reset:
+        _embeddings = None
     if _embeddings is None:
-        _embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
-        )
+        choice = (os.environ.get(EMBEDDING_MODEL_ENV) or "").strip().lower()
+        if choice in ("medsiglip", "siglip"):
+            model_name = os.environ.get(MEDSIGLIP_MODEL_ENV, "google/siglip-base-patch16-224")
+            _embeddings = MedSigLIPTextEmbeddings(model_name=model_name)
+            logger.info("Using MedSigLIP/SigLIP embeddings: %s", model_name)
+        else:
+            _embeddings = HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2"
+            )
+            logger.info("Using HuggingFace embeddings: sentence-transformers/all-MiniLM-L6-v2")
     return _embeddings
 
-<<<<<<< HEAD
-    Each chunk is tagged with ``cfr_part`` metadata (e.g. "21 CFR Part 50")
-    so retrieval can be scoped to only the regulations the user selected.
-    Returns the underlying Chroma vector_db (not a retriever) so callers
-    can apply metadata filters at query time.
-    """
-    # ── Choose embedding model ──────────────────────────────
-    # Option A: MedSigLIP text encoder (experimental, HAI-DEF)
-    embeddings = MedSigLIPTextEmbeddings(
-        model_name="google/siglip-base-patch16-256",
-        # Switch to the gated MedSigLIP checkpoint when available:
-        # model_name="google/medsiglip-base-patch16-256",
-    )
-
-    # Option B: General-purpose sentence embeddings (better for text↔text RAG)
-    # embeddings = HuggingFaceEmbeddings(
-    #     model_name="sentence-transformers/all-MiniLM-L6-v2"
-    # )
-
-    # Wipe and rebuild on every startup so we always reflect fresh eCFR data
-    if os.path.exists(CHROMA_DIR):
-        shutil.rmtree(CHROMA_DIR)
-        logger.info("Cleared stale ChromaDB at %s", CHROMA_DIR)
-
-    # ── Split each CFR part separately so we can tag metadata ──
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-=======
 
 def get_protocol_splitter():
     """Text splitter for protocol documents."""
     return RecursiveCharacterTextSplitter(
         chunk_size=800,
->>>>>>> 5fb04a88e034502960c9660582cb3601462e2bc9
         chunk_overlap=120,
         separators=["\n\n", "\n", ". ", " "],
     )

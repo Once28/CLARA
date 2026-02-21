@@ -16,6 +16,8 @@ chromadb>=0.5.0
 langchain-huggingface>=1.2.0
 sentence-transformers>=3.0.0
 sentencepiece>=0.2.0         # Required by SigLIP/MedSigLIP tokenizer
+torch>=2.0.0
+transformers>=4.40.0         # For MedSigLIP/SigLIP text encoder (EMBEDDING_MODEL=medsiglip)
 
 # --- Web Interface & API ---
 fastapi>=0.115.0

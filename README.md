@@ -91,17 +91,9 @@ CLARA/
 
 ## 🔧 Core Components
 
-<<<<<<< HEAD
-### 1. **server.py** - FastAPI Backend
-- Fetches multiple CFR parts (11, 50, 56, 58, 211, 312, 314, 45 CFR 46) via eCFR API
-- Initializes RAG system and LLM at startup
-- Exposes REST API for audit upload, retrieval, and deletion
-- Runs per-request metadata-filtered RAG retrieval and structured LLM audit
-=======
 ### 1. **server.py** - FastAPI Backend (primary)
 - On startup: loads MedGemma (Vertex AI) and fetches CFR parts from eCFR API.
 - On protocol upload: extracts text, chunks and embeds it via `vector_store.index_protocol`, then for each selected CFR regulation runs `query_protocol_for_regulation` (reversed RAG), builds context, and runs the LLM audit with structured output.
->>>>>>> 5fb04a88e034502960c9660582cb3601462e2bc9
 
 ### 2. **graph.py** - Workflow Engine
 - Defines LangGraph state machine

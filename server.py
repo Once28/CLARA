@@ -14,17 +14,17 @@ from typing import Optional
 
 from dotenv import load_dotenv
 load_dotenv()
-
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from PyPDF2 import PdfReader
 import io
 
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+
 from ecfr_client import ECFRClient
 from vector_store import (
+    get_embeddings,
     index_protocol,
     query_protocol_for_regulation,
-    get_embeddings,
 )
 from medgemma_llm import MedGemmaVertexLLM
 
@@ -43,8 +43,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ─── Pipeline init (runs once at startup) ─────────────────────
-
+# CFR parts: key (frontend) -> (label, fetcher). Fetched at startup for reversed RAG.
 REGULATION_MAP = {
     "21_cfr_11":  ("21 CFR Part 11",  ECFRClient.get_part_11_text),
     "21_cfr_50":  ("21 CFR Part 50",  ECFRClient.get_part_50_text),
@@ -56,10 +55,8 @@ REGULATION_MAP = {
     "45_cfr_46":  ("45 CFR Part 46",  ECFRClient.get_part_45_46_text),
 }
 
-# These are populated at startup
 _llm = None
-# Full text of each CFR part (label -> text) for querying protocol and LLM context
-_REGULATION_TEXTS: dict[str, str] = {}
+_REGULATION_TEXTS: dict[str, str] = {}  # label -> full text, populated at startup
 
 
 @app.on_event("startup")
@@ -79,15 +76,17 @@ async def startup():
         try:
             raw = fetcher()
             _REGULATION_TEXTS[label] = raw
-            logger.info(f"  ✓ {label}")
+            logger.info("  ✓ %s", label)
         except Exception as e:
-            logger.warning(f"  ✗ {label}: {e}")
+            logger.warning("  ✗ %s: %s", label, e)
 
-    # Warm embeddings model (used when protocol is uploaded)
+    # Warm embeddings model (used when protocol is uploaded); respects EMBEDDING_MODEL env
     get_embeddings()
+    emb_choice = os.environ.get("EMBEDDING_MODEL", "").strip().lower() or "huggingface"
     logger.info(
-        "CLARA API ready. Reversed RAG: protocols are chunked and embedded on upload; "
-        "each CFR regulation is checked against the protocol index."
+        "CLARA API ready. Reversed RAG: protocols chunked and embedded on upload; "
+        "each CFR regulation checked against protocol index. Embeddings: %s.",
+        "medsiglip" if emb_choice in ("medsiglip", "siglip") else "sentence-transformers",
     )
 
 
@@ -426,11 +425,17 @@ async def upload_protocol(
     if not protocol_text.strip():
         raise HTTPException(400, "Could not extract any text from the uploaded file.")
 
-    # 2. Always check every loaded CFR regulation (ignore form selection; audit all)
+    # 2. Use only the regulations selected on the frontend (comma-separated keys)
+    if regulations and regulations.strip():
+        reg_keys = [k.strip() for k in regulations.split(",")]
+    else:
+        reg_keys = list(REGULATION_MAP.keys())
     reg_labels = [
-        REGULATION_MAP[k][0] for k in REGULATION_MAP
-        if REGULATION_MAP[k][0] in _REGULATION_TEXTS
+        REGULATION_MAP[k][0] for k in reg_keys
+        if k in REGULATION_MAP and REGULATION_MAP[k][0] in _REGULATION_TEXTS
     ]
+    if not reg_labels:
+        raise HTTPException(400, "No valid regulations selected or loaded.")
     regulations_text = ", ".join(reg_labels)
 
     # 3. Index the uploaded protocol (chunk + embed) so we can query by regulation
