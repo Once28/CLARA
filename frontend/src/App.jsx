@@ -77,7 +77,7 @@ export default function App() {
   } = useAudits();
 
   const [showUpload, setShowUpload] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [splashDone, setSplashDone] = useState(false);
 
   if (!splashDone) {
@@ -93,7 +93,6 @@ export default function App() {
         onSelect={setSelectedId}
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed((c) => !c)}
-        onUploadClick={() => setShowUpload(true)}
       />
 
       {/* ── Main content area ── */}

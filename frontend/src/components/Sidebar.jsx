@@ -11,7 +11,7 @@ function getWorstStatus(breakdown) {
   }, "pass");
 }
 
-export default function Sidebar({ audits, selectedId, onSelect, collapsed, onToggle, onUploadClick }) {
+export default function Sidebar({ audits, selectedId, onSelect, collapsed, onToggle }) {
   return (
     <div
       className="sidebar liquid-glass"
@@ -179,29 +179,7 @@ export default function Sidebar({ audits, selectedId, onSelect, collapsed, onTog
         })}
       </div>
 
-      {/* Upload button at bottom */}
-      <div style={{
-        padding: collapsed ? "12px 8px" : "12px 16px",
-        borderTop: "1px solid rgba(255, 255, 255, 0.35)",
-      }}>
-        <button
-          className="btn-primary"
-          onClick={onUploadClick}
-          style={{
-            width: "100%",
-            justifyContent: "center",
-            padding: collapsed ? "10px" : "10px 16px",
-            fontSize: collapsed ? 0 : 13,
-            gap: collapsed ? 0 : 8,
-          }}
-          title="Upload protocol"
-        >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-            <path d="M8 11V1M8 1l-3 3M8 1l3 3M2 14h12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          {!collapsed && "Upload"}
-        </button>
-      </div>
+
     </div>
   );
 }
