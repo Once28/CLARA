@@ -2,13 +2,62 @@ import os
 import re
 import shutil
 import logging
+from typing import List
 
+import torch
+from transformers import AutoModel, AutoTokenizer
+from langchain_core.embeddings import Embeddings
 from langchain_community.vectorstores import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings  # kept for optional swap
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
 logger = logging.getLogger(__name__)
+
+
+# ─── MedSigLIP text-encoder wrapper ──────────────────────────
+# NOTE: MedSigLIP is a contrastive vision-language model. Its text encoder
+# is optimised for image↔text alignment, NOT text↔text retrieval. Using it
+# here is experimental; a dedicated sentence-embedding model (see commented-
+# out option below) will generally produce better RAG recall.
+
+class MedSigLIPTextEmbeddings(Embeddings):
+    """LangChain Embeddings wrapper around MedSigLIP's text encoder."""
+
+    def __init__(self, model_name: str = "google/siglip-base-patch16-256"):
+        # MedSigLIP shares the SigLIP architecture; swap model_name to the
+        # specific MedSigLIP checkpoint once you have gated access, e.g.
+        #   "google/medsiglip-base-patch16-256"
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModel.from_pretrained(model_name)
+        self.model.eval()
+        logger.info("Loaded MedSigLIP text encoder: %s", model_name)
+
+    def _embed(self, texts: List[str]) -> List[List[float]]:
+        """Tokenize and encode a batch of texts, returning L2-normalised vectors."""
+        inputs = self.tokenizer(
+            texts,
+            padding="max_length",
+            truncation=True,
+            max_length=64,  # SigLIP-base max_position_embeddings = 64 tokens
+            return_tensors="pt",
+        )
+        with torch.no_grad():
+            outputs = self.model.get_text_features(**inputs)  # (batch, dim)
+        # L2-normalise so cosine similarity = dot product (Chroma default)
+        embeddings = torch.nn.functional.normalize(outputs, dim=-1)
+        return embeddings.cpu().tolist()
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        # Batch to avoid OOM — SigLIP base is ~813 MB
+        batch_size = 64
+        all_embeddings: List[List[float]] = []
+        for i in range(0, len(texts), batch_size):
+            all_embeddings.extend(self._embed(texts[i : i + batch_size]))
+        return all_embeddings
+
+    def embed_query(self, text: str) -> List[float]:
+        return self._embed([text])[0]
 
 CHROMA_DIR = "./data/chroma_db"
 
@@ -24,9 +73,18 @@ def initialize_rag(raw_law_text: str):
     Returns the underlying Chroma vector_db (not a retriever) so callers
     can apply metadata filters at query time.
     """
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    # ── Choose embedding model ──────────────────────────────
+    # Option A: MedSigLIP text encoder (experimental, HAI-DEF)
+    embeddings = MedSigLIPTextEmbeddings(
+        model_name="google/siglip-base-patch16-256",
+        # Switch to the gated MedSigLIP checkpoint when available:
+        # model_name="google/medsiglip-base-patch16-256",
     )
+
+    # Option B: General-purpose sentence embeddings (better for text↔text RAG)
+    # embeddings = HuggingFaceEmbeddings(
+    #     model_name="sentence-transformers/all-MiniLM-L6-v2"
+    # )
 
     # Wipe and rebuild on every startup so we always reflect fresh eCFR data
     if os.path.exists(CHROMA_DIR):

@@ -1,6 +1,6 @@
 ### Project Name
 
-**Regulatory-Intelligence-Platform (RIP):** A multi-modal agentic platform to automate the "Regulatory Cross-Examination" of clinical trial protocols, ensuring alignment with federal regulations and global ethical standards.
+**CLARA (CLinical Audit & Regulation Assistant)** is an agentic platform to automate the regulatory cross-examination of clinical trial protocols, ensuring alignment with federal regulations and global ethical standards.
 
 ### Team
 
@@ -20,33 +20,42 @@ Every clinical trial must undergo regulatory cross-examination — a labor-inten
 2. **Subject matter specialization:** The task demands deep domain expertise in both clinical medicine and regulatory law, a very specialized combination of skills.
 3. **High-impact:** A single oversight — a missing informed consent clause, an inadequate adverse event reporting plan, or a non-compliant inclusion/exclusion criterion — can result in FDA clinical holds, IRB rejections, or costly protocol amendments that delay trials by months.
 
-At the core of AI and data science, we believe the highest impact lies in solving repetitive tasks that require specialized skills — tackling the "unsexy" bottleneck work that distracts researchers from scientific innovation. In clinical trials, regulatory cross-examination is precisely that bottleneck.
+At the core of AI and data science, we believe the highest impact lies in solving repetitive tasks that require specialized, subject matter expertise — efficiently tackling the bottleneck regulation work that obstruct researchers from scientific innovation.
 
 #### Impact Potential
 
-There is strong impact potential in terms of automating clinical trial proocol reviews:
+There is strong impact potential in terms of automating clinical trial protocol reviews:
 
 - **Over 300,000 clinical trials** are registered globally at any given time (ClinicalTrials.gov), each requiring regulatory review.
 - The average Phase III trial costs **$11.5M–$52.9M**, with regulatory delays adding an estimated **$37,000 per day** in opportunity costs (Tufts CSDD).
 - **~80% of clinical trials** experience delays, with regulatory and IRB review being a leading contributor.
 - Protocol amendments, often triggered by regulatory non-compliance discovered late, occur in **57% of trials** and cost an average of **$535,000 per amendment** (Tufts CSDD).
 
-By automating regulatory cross-examination, RIP can significantly reduce review cycle times from weeks to minutes, catch compliance gaps before submission, and free clinical practicians to focus on research rather than line-by-line cross-referencing.
+By automating regulatory cross-examination, CLARA can significantly reduce review cycle times from weeks to minutes, catch compliance gaps before submission, and free clinical practicians to focus on research rather than line-by-line cross-referencing.
 
 ### Overall Solution
 
-RIP employs a Retrieval-Augmented Generation (RAG) pipeline with an agentic multi-step workflow that mirrors how a human regulatory specialist reviews a clinical trial protocol.
+CLARA employs a RAG pipeline with an agentic multi-step workflow that mirrors how a human regulatory specialist reviews a clinical trial protocol.
 
-In terms of effectively using HAI-DEF models, since clinical trial protocols use highly specialized language — phrases like *"serious adverse event reporting within 24 hours"*, *"informed consent per 21 CFR 50.25"*, or *"IND safety reports per 312.32"* — that carry precise regulatory meaning. Rather than fine-tuning a model (which risks hallucination on regulatory citations), we built a RAG pipeline that grounds every assessment in retrieved regulatory text, ensuring traceability and auditability — a non-negotiable requirement in regulated industries. We leveraged HAI-DEF's embedding model for our vector store to capture medical languages effectively, in terms of domain-sensitive embeddings, higher retrieval precision, and generative cross-examination.
+In terms of effectively using HAI-DEF models, since clinical trial protocols use highly specialized language — phrases like *"serious adverse event reporting within 24 hours"*, *"informed consent per 21 CFR 50.25"*, or *"IND safety reports per 312.32"* — that carry medical meaning. Rather than fine-tuning a model (which risks hallucination on regulatory citations), we built a RAG pipeline that grounds every assessment in retrieved regulatory text, ensuring traceability and auditability — a non-negotiable requirement in regulated industries. We leveraged HAI-DEF's embedding model for our vector store to capture medical languages effectively, in terms of domain-sensitive embeddings, higher retrieval precision, and generative cross-examination.
 
-1. **Domain-sensitive embeddings:** Compared to general-purpose embedding models, HAI-DEF's model captures the semantic nuances of medical and regulatory language — distinguishing, for example, between *"adverse event"* (clinical) and *"adverse action"* (legal) — which is critical for accurate retrieval in our RAG pipeline.
+#### (1) Domain-Sensitive Embeddings
+Compared to general-purpose embedding models, HAI-DEF's model captures the semantic nuances of medical and regulatory language — distinguishing, for example, between *"adverse event"* (clinical) and *"adverse action"* (legal) — which is critical for accurate retrieval in our RAG pipeline for both regulation documents querying and protocol segment retrieval.
+
+We explored the use of high-performing textual embedding model () and HAI-DEF's MedSIGLIP [add citation]. MedSigLIP, is trained on textual and image data, used to create embeddings for matching the two. When exploring which HAI-DEF models to use, we opted for this one given that there is medical specialization and 
+
+(empty table of each model (2 total) against metrics we can train for this specific use case)
+
+We tested the output performance using documents with pre-defined ground truths and RAG evaluation metrics.  We noticed that (keep blank for now)
+
+
 2. **Retrieval precision:** Our ChromaDB vector store indexes chunked regulatory documents (CFR titles, ICH guidelines, FDA guidance documents) using HAI-DEF embeddings, enabling high-precision semantic search when the agentic system queries specific regulatory requirements.
 3. **Generative cross-examination:** HAI-DEF's generative model powers the final compliance assessment, synthesizing retrieved regulatory passages with protocol content to produce structured, citation-backed compliance reports.
 
 The platform implements a multi-agent architecture using LangGraph, orchestrating specialized agents in a directed workflow:
 
 ```
-Protocol Upload → Document Parsing → Section Extraction →
+Protocol Upload → Document Parsing → Section Extraction → Structured Compliance Report with Citations
   ┌─────────────────────────────────────────────────────────┐
   │  Agent 1: Regulatory Retrieval Agent                    │
   │  (Queries ChromaDB for relevant CFR/ICH sections)       │
@@ -60,20 +69,20 @@ Protocol Upload → Document Parsing → Section Extraction →
   │  Agent 4: Recommendation Agent                          │
   │  (Generates actionable remediation suggestions)         │
   └─────────────────────────────────────────────────────────┘
-→ Structured Compliance Report with Citations
 ```
 
 Each agent operates with a defined scope and passes structured state to the next, ensuring deterministic, auditable reasoning chains rather than a single monolithic LLM call.
 
+
 ### Technical Details
 
-The technical details will cover the technology stack, product feasibility through understanding how users interact with RIP, and how the tool is evaluated to ensure continuous improvement and high-quality performance.
+The technical details will cover the technology stack, product feasibility through understanding how users interact with CLARA, and how the tool is evaluated to ensure continuous improvement and high-quality performance.
 
 #### Technology Stack
 
 | Component | Technology | Purpose |
 |---|---|---|
-| **Frontend** | Streamlit | Interactive web interface for protocol upload and report viewing |
+| **Frontend** | React | Interactive web interface for protocol upload and report viewing |
 | **Orchestration** | LangGraph + LangChain | Multi-agent workflow with stateful graph execution |
 | **Vector Store** | ChromaDB (persistent) | Stores embeddings of regulatory documents for semantic retrieval |
 | **Embeddings** | HAI-DEF Embedding Model | Generates domain-aware vector representations of regulatory text |
@@ -86,7 +95,7 @@ The technical details will cover the technology stack, product feasibility throu
 1. **Upload:** A clinical researcher or regulatory specialist uploads their clinical trial protocol (PDF) through the Streamlit interface.
 2. **Configure:** The user selects which regulatory frameworks to cross-examine against (e.g., FDA 21 CFR, ICH-GCP E6(R2), specific institutional requirements).
 3. **Review:** The platform processes the document through its agentic pipeline and returns a structured compliance report with:
-   - Section-by-section compliance status (Compliant / Non-Compliant / Needs Review)
+   - By-Regulation compliance status (Compliant / Non-Compliant / Needs Review)
    - Specific regulatory citations for each finding
    - Gap analysis identifying missing required elements
    - Actionable recommendations for remediation
@@ -94,7 +103,7 @@ The technical details will cover the technology stack, product feasibility throu
 
 #### What This Tool Accomplishes
 
-RIP serves as an AI-powered regulatory reviewer that:
+CLARA serves as an AI-powered regulatory reviewer that:
 
 - Reduces review time from days/weeks to minutes for initial compliance screening
 - Democratizes regulatory expertise**by making federal regulation accessible to researchers without deep regulatory training
@@ -111,7 +120,13 @@ This asymmetric cost function informed our design decisions:
 
 #### Product Feasibility
 
-The platform is fully functional as a prototype and designed for integration into existing clinical workflows. RIP allows researchers to continue writing protocols in their existing tools by accepting standard PDF uploads, requiring no changes to their current process. Researchers can iteratively improve protocols using RIP’s instant feedback, enabling a ‘write → check → revise’ loop that improves protocol quality before the formal and costly review process.
+You will be assessed on: technical documentation detailing model fine-tuning, model's performance analysis, your user-facing application stack, deployment challenges and how you plan on overcoming them. Consideration of how a product might be used in practice, rather than only for benchmarking.
+
+In terms of product feasibility, CLARA is built with strong user-oriented phiosolphies and technical depth.
+
+When mapping the user journey, CLARA fits seemlessly into the workflow for researchers. As a prototype and designed for integration into existing clinical workflows. CLARA allows researchers to continue writing protocols in their existing tools by accepting standard PDF uploads, requiring no changes to their current process. Researchers can iteratively improve protocols using CLARA's instant feedback, enabling a ‘write → check → revise’ loop that improves protocol quality before the formal and costly review process.
+
+
 
 While the current version has been tested on a subset of regulations, the system is built on an immutable Directed Acyclic Graph (DAG) architecture, allowing new regulations, guidance documents, or institutional policies to be added to the ChromaDB vector store without retraining models. This modular structure ensures that individual components of the workflow can be updated independently and rolled back when necessary to isolate and analyze errors.
 

@@ -158,42 +158,50 @@ class MedGemmaVertexLLM(LLM):
         """
         Extract the assistant text from the Vertex AI endpoint response.
 
-        vLLM on Vertex AI can return predictions in several layouts:
-        - A parsed dict with chat-completions structure
-        - A stringified Python dict (repr) with the same structure
-        - A plain string with the model output
+        vLLM on Vertex AI returns predictions in different shapes depending
+        on the serving container version:
+          - A dict (the chat-completions object itself)
+          - A list containing one dict
+          - A list containing a string
         """
         try:
             predictions = response.predictions
             logger.info("Raw predictions type=%s  count=%d",
-                        type(predictions).__name__, len(predictions) if predictions else 0)
+                        type(predictions).__name__,
+                        len(predictions) if predictions else 0)
 
             if not predictions:
                 return "[MedGemma returned no predictions]"
 
-            pred = predictions[0]
-            logger.info("predictions[0] type=%s  first500=%.500s",
-                        type(pred).__name__, str(pred))
-
-            # ── Case 1: pred is already a dict ──
-            if isinstance(pred, dict):
-                text = cls._extract_content_from_dict(pred)
+            # ── predictions is directly a chat-completions dict ──
+            if isinstance(predictions, dict):
+                text = cls._extract_content_from_dict(predictions)
                 if text:
+                    logger.info("Extracted content from predictions dict (%d chars)", len(text))
                     return text
 
-            # ── Case 2: pred is a string that looks like a dict/JSON ──
-            if isinstance(pred, str):
-                parsed = cls._try_parse_as_dict(pred)
-                if parsed:
-                    text = cls._extract_content_from_dict(parsed)
-                    if text:
-                        return text
-                # It might just be the raw model output as a string
-                return pred
+            # ── predictions is a list ──
+            if isinstance(predictions, list):
+                pred = predictions[0]
 
-            # ── Fallback ──
-            text = str(pred)
-            logger.warning("Could not find text in prediction; returning str(pred)")
+                if isinstance(pred, dict):
+                    text = cls._extract_content_from_dict(pred)
+                    if text:
+                        logger.info("Extracted content from predictions[0] dict (%d chars)", len(text))
+                        return text
+
+                if isinstance(pred, str):
+                    parsed = cls._try_parse_as_dict(pred)
+                    if parsed:
+                        text = cls._extract_content_from_dict(parsed)
+                        if text:
+                            logger.info("Extracted content from parsed string (%d chars)", len(text))
+                            return text
+                    return pred
+
+            # ── Fallback: stringify whatever we got ──
+            text = str(predictions)
+            logger.warning("Could not extract content; returning str(predictions) (%d chars)", len(text))
             return text
 
         except Exception as e:

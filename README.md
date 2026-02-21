@@ -69,7 +69,6 @@ The React frontend connects to the backend at `http://localhost:8000` (configure
 ```
 CLARA/
 ├── server.py               # FastAPI backend (serves the React frontend)
-├── app.py                  # Streamlit web interface (standalone for testing)
 ├── graph.py                # LangGraph workflow definition
 ├── nodes.py                # Retrieval and audit node implementations
 ├── state.py                # Agent state schema (TypedDict)
@@ -97,10 +96,11 @@ CLARA/
 
 ## 🔧 Core Components
 
-### 1. **app.py** - Main App
-- Fetches multiple CFR parts (11, 46, 50, 56, 58, 211, 312, 314, 45 CFR 46) via eCFR API
-- Initializes RAG system and LLM
-- Orchestrates the audit workflow
+### 1. **server.py** - FastAPI Backend
+- Fetches multiple CFR parts (11, 50, 56, 58, 211, 312, 314, 45 CFR 46) via eCFR API
+- Initializes RAG system and LLM at startup
+- Exposes REST API for audit upload, retrieval, and deletion
+- Runs per-request metadata-filtered RAG retrieval and structured LLM audit
 
 ### 2. **graph.py** - Workflow Engine
 - Defines LangGraph state machine
