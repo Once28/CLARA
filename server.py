@@ -513,7 +513,7 @@ async def upload_protocol(
         "phase": phase or "Unknown",
         "score": score,
         "queryDescription": (
-            f"Reversed RAG: protocol \"{title or file.filename}\" was chunked and embedded as the knowledge base. "
+            f"RAG: protocol \"{title or file.filename}\" was chunked and embedded as the knowledge base. "
             f"Each CFR regulation ({regulations_text}) was checked against the protocol index; "
             f"retrieved protocol sections were used for the audit."
         ),
