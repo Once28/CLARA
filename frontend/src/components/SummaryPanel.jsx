@@ -33,17 +33,6 @@ export default function SummaryPanel({ audit }) {
         <DownloadIcon />
       </div>
 
-      {/* Retrieved Sections */}
-      {audit.retrievedSections && audit.retrievedSections.length > 0 && (
-        <Section title="Retrieved Protocol Sections">
-          <ul style={listStyle}>
-            {audit.retrievedSections.map((s, i) => (
-              <li key={i}>{s}</li>
-            ))}
-          </ul>
-        </Section>
-      )}
-
       {/* Query description */}
       {audit.queryDescription && (
         <div

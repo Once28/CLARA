@@ -30,3 +30,6 @@ PyPDF2>=3.0.1
 # --- Data Processing ---
 lxml>=5.0.0      # Required for eCFR XML parsing
 pandas>=2.2.0
+
+# --- Evaluation & Visualisation ---
+matplotlib>=3.8.0   # Retrieval evaluation plots (test/evaluate_retrieval.py)
