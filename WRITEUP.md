@@ -4,9 +4,9 @@
 
 ### Team
 
-**Justin Zeng** (Columbia University '26, University of Washington '24) — Academic experience in bioinformatics and data science; currently a researcher at Columbia's Irving Medical Center. Justin identified the core medical components and built the agentic workflow process to emulate clinical trial protocol review processes.
+**Justin Zeng** ([LinkedIn](https://www.linkedin.com/in/justin-zeng/)) — Academic experience in bioinformatics and data science; currently a researcher at Columbia's Irving Medical Center. Justin identified the core medical components and built the agentic workflow process to emulate clinical trial protocol review processes. 
 
-**Kennard Mah** (Columbia University '25, Imperial College London '24) — Academic experience in human-centered design engineering and data science. Kennard aligned the workflow with human-centered design principles, bridging the technical architecture with practical clinical applications.
+**Kennard Mah** ([LinkedIn](https://www.linkedin.com/in/kennardmah/) — Academic experience in human-centered design engineering and data science. Kennard aligned the workflow with human-centered design principles, bridging the technical architecture with practical clinical applications.
 
 Both Justin and Kennard contributed to the codebase, UI/UX design, and research into current clinical processes to identify high-impact areas for AI integration.
 
@@ -77,7 +77,7 @@ The technical details will cover the technology stack, product feasibility throu
 | **Frontend** | React | Interactive web interface for protocol upload and report viewing |
 | **Orchestration** | LangGraph + LangChain | Multi-agent workflow with stateful graph execution |
 | **Vector Store** | ChromaDB (persistent) | Stores embeddings of regulatory documents for semantic retrieval |
-| **Embeddings** | MedSigLIP / all-MiniLM-L6-v2 / EmbeddingGemma | Domain-aware and general-purpose vector representations (A/B) |
+| **Embeddings** | MedSigLIP / all-MiniLM-L6-v2 / EmbeddingGemma | Domain-aware and general-purpose vector representations |
 | **LLM** | MedGemma 1.5 4B-IT (Vertex AI) | Powers compliance reasoning and report generation |
 | **Document Processing** | PyPDF / custom parsers | Extracts and chunks clinical trial protocols and regulatory PDFs |
 | **Language** | Python 3.11+ | Core application logic |
@@ -149,12 +149,12 @@ All three embedding options are implemented or readily integrable in our codebas
 
 ##### User-Facing Application Stack
 
-CLARA's frontend is a single-page React application (Vite build toolchain) designed around the clinical researcher's workflow:
+CLARA's frontend is a single-page React application (Vite build toolchain) designed around the clinical researcher's workflow, that includes 5 features: Protocol Upload, Regulation Selection, Structured Audit Reports, Protocol Score, and Audit History.
 
 - **Protocol Upload:** Drag-and-drop PDF upload with real-time processing feedback. Researchers continue writing protocols in their existing tools (Word, LaTeX, CTMS) — CLARA accepts standard PDFs, requiring no changes to their current process.
 - **Regulation Selection:** Multi-select interface for 8 CFR parts (21 CFR Parts 11, 50, 56, 58, 211, 312, 314; 45 CFR Part 46), allowing researchers to scope audits to relevant regulations rather than running against the full corpus.
-- **Structured Audit Reports:** Results are presented as per-regulation cards showing pass/warning/critical status, specific compliance gaps, and actionable remediation steps — mirroring the format of a human regulatory reviewer's report.
-- **Score Visualization:** A weighted compliance score (Safety & Ethics 40%, Data Integrity 30%, Operational Rigor 30%) provides an at-a-glance quality signal, with drill-down into individual regulation findings.
+- **Structured Audit Reports:** Results are presented as per-regulation cards showing pass/warning/critical status, specific compliance gaps, and actionable remediation steps. This mirrors the format of a human regulatory reviewer's report.
+- **Protocol Score:** A weighted compliance score that provides an at-a-glance quality signal, with drill-down into individual regulation findings.
 - **Audit History:** A persistent sidebar stores previous audits, enabling researchers to track compliance improvements across protocol revisions.
 
 The backend is a FastAPI server (`server.py`, port 8000) that orchestrates the full pipeline: PDF text extraction (PyPDF2), regulation fetching from the eCFR API at startup, ChromaDB vector store initialization, and the LangGraph audit workflow. CORS middleware enables the React frontend to communicate from its Vite dev server (port 5173) or production build.
@@ -166,7 +166,7 @@ This architecture enables the **write → check → revise** feedback loop: rese
 | Challenge | Impact | Mitigation |
 |---|---|---|
 | **MedGemma's structured output reliability** | 4B-parameter model frequently produces malformed JSON, single-quoted keys, trailing commas, or free-text instead of arrays | Four-level fallback parser (direct parse → regex array extraction → individual object collection → free-text keyword inference) + deduplication merge ensures valid structured data reaches the frontend in all cases |
-| **SigLIP's 64-token context limit** | Regulation chunks (~150–200 tokens) are truncated to ~40–60 words, degrading embedding quality | Mitigated by splitting regulations at 1,000 chars with 120-char overlap so critical terms appear in chunk openings; upgrade path to EmbeddingGemma 300M eliminates truncation entirely |
+| **SigLIP's 64-token context limit** | Regulation chunks (~150–200 tokens) are truncated to ~40–60 words, degrading embedding quality | Mitigated by splitting regulations at 1,000 chars with 120-char overlap so critical terms appear in chunk openings; upgrade path to EmbeddingGemma 300M eliminates truncation |
 | **Vertex AI cold starts & latency** | First inference after idle period takes 15–30s; subsequent calls ~3–8s per audit | vLLM serving container with persistent GPU allocation; frontend shows real-time processing feedback (animated logo) to manage user expectations |
 | **eCFR API availability** | Regulation text fetched live at startup; API outages block initialization | Graceful degradation with `try/except` per CFR part — partial regulation sets still produce useful audits; future: cache regulations in persistent storage |
 | **Protocol length vs. context window** | MedGemma's 128K context is large, but prompts with full protocols + retrieved regulations can be expensive | Protocol text truncated to first 8,000 characters (covering key sections: objectives, eligibility, consent, safety); retrieved context capped at 15 chunks |
@@ -187,7 +187,7 @@ The system is built on a **modular, immutable DAG architecture** (LangGraph `Sta
 - **Specialized agents:** LangGraph's node-based architecture supports adding domain-specific agents (e.g., budget compliance, site feasibility, pharmacovigilance) as new graph nodes without modifying existing retrieval or audit logic.
 - **Evaluation pipeline:** Our dataset of compliant protocols (sourced from ClinicalTrials.gov) and synthetically generated non-compliant variants (produced by systematically redacting required elements from compliant protocols) provides the ground-truth annotations needed for retrieval recall/precision measurement and end-to-end audit accuracy evaluation. Future work will formalize these into automated regression benchmarks.
 
-The traceability of every finding — grounded in specific, cited regulatory text rather than hallucinated compliance claims — ensures that final compliance determinations always rest with qualified human reviewers, with CLARA accelerating rather than replacing their expertise.
+The traceability of every finding, grounded in cited regulatory text rather than hallucinated compliance claims, ensures that final compliance determinations always rest with qualified human reviewers, with CLARA accelerating rather than replacing their expertise.
 
 
 ### References
