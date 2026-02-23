@@ -1,0 +1,93 @@
+2026-02-23 19:36:02,394 clara.eval INFO Loaded 14 ground truth samples
+2026-02-23 19:36:04,759 numexpr.utils INFO NumExpr defaulting to 14 threads.
+2026-02-23 19:36:05,334 sentence_transformers.SentenceTransformer INFO Use pytorch device_name: mps
+2026-02-23 19:36:05,334 sentence_transformers.SentenceTransformer INFO Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2026-02-23 19:36:08,202 clara.eval INFO ✓ Model 'minilm' loaded
+2026-02-23 19:36:12,627 vector_store INFO MedSigLIP Vertex endpoint ready: mg-endpoint-6c6d9dde-5a2c-4470-be0a-8ac47737aa72 (asia-east1)
+2026-02-23 19:36:12,627 clara.eval INFO ✓ Model 'medsiglip' loaded
+2026-02-23 19:36:12,627 clara.eval INFO EmbeddingGemma using Model Garden endpoint: mg-endpoint-b18b4a75-2a3e-4f85-ac38-6fba9c2f5522 (asia-northeast1)
+2026-02-23 19:36:12,627 clara.eval INFO ✓ Model 'embeddinggemma' loaded
+2026-02-23 19:36:12,627 clara.eval INFO ✓ Model 'random' loaded
+/Users/kennardmah/.pyenv/versions/3.12.1/lib/python3.12/multiprocessing/resource_tracker.py:254: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
+ "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/venv/lib/python3.12/site-packages/urllib3/connectionpool.py", line 534, in _make_request
+    response = conn.getresponse()
+               ^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/venv/lib/python3.12/site-packages/urllib3/connection.py", line 571, in getresponse
+    httplib_response = super().getresponse()
+                       ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/.pyenv/versions/3.12.1/lib/python3.12/http/client.py", line 1419, in getresponse
+    response.begin()
+  File "/Users/kennardmah/.pyenv/versions/3.12.1/lib/python3.12/http/client.py", line 331, in begin
+    version, status, reason = self._read_status()
+                              ^^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/.pyenv/versions/3.12.1/lib/python3.12/http/client.py", line 300, in _read_status
+    raise RemoteDisconnected("Remote end closed connection without"
+http.client.RemoteDisconnected: Remote end closed connection without response
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/venv/lib/python3.12/site-packages/requests/adapters.py", line 644, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/venv/lib/python3.12/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/venv/lib/python3.12/site-packages/urllib3/util/retry.py", line 490, in increment
+    raise reraise(type(error), error, _stacktrace)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/venv/lib/python3.12/site-packages/urllib3/util/util.py", line 38, in reraise
+    raise value.with_traceback(tb)
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/venv/lib/python3.12/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/venv/lib/python3.12/site-packages/urllib3/connectionpool.py", line 534, in _make_request
+    response = conn.getresponse()
+               ^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/venv/lib/python3.12/site-packages/urllib3/connection.py", line 571, in getresponse
+    httplib_response = super().getresponse()
+                       ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/.pyenv/versions/3.12.1/lib/python3.12/http/client.py", line 1419, in getresponse
+    response.begin()
+  File "/Users/kennardmah/.pyenv/versions/3.12.1/lib/python3.12/http/client.py", line 331, in begin
+    version, status, reason = self._read_status()
+                              ^^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/.pyenv/versions/3.12.1/lib/python3.12/http/client.py", line 300, in _read_status
+    raise RemoteDisconnected("Remote end closed connection without"
+urllib3.exceptions.ProtocolError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/test/evaluate_retrieval.py", line 773, in <module>
+    main()
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/test/evaluate_retrieval.py", line 769, in main
+    run_evaluation(gt_path, args.models, args.k, report_path, args.max_samples, plot_path)
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/test/evaluate_retrieval.py", line 461, in run_evaluation
+    result = evaluator.retrieve(chunks, query, k=max_k)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/test/evaluate_retrieval.py", line 296, in retrieve
+    chunk_embeddings = np.array(self._embeddings.embed_documents(chunks))
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/test/evaluate_retrieval.py", line 245, in embed_documents
+    response = self._endpoint.predict(instances=instances)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/venv/lib/python3.12/site-packages/google/cloud/aiplatform/models.py", line 2682, in predict
+    response = self.authorized_session.post(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/venv/lib/python3.12/site-packages/requests/sessions.py", line 637, in post
+    return self.request("POST", url, data=data, json=json, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/venv/lib/python3.12/site-packages/google/auth/transport/requests.py", line 543, in request
+    response = super(AuthorizedSession, self).request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/venv/lib/python3.12/site-packages/requests/sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/venv/lib/python3.12/site-packages/requests/sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/kennardmah/dev/Regulatory-Intelligence-Platform/venv/lib/python3.12/site-packages/requests/adapters.py", line 659, in send
+    raise ConnectionError(err, request=request)
+requests.exceptions.ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))

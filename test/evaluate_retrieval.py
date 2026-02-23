@@ -30,6 +30,7 @@ Usage:
     python test/evaluate_retrieval.py --report test/results/retrieval_report.html
 """
 
+import csv
 import json
 import math
 import os
@@ -400,6 +401,7 @@ def run_evaluation(
     report_path: Optional[Path] = None,
     max_samples: Optional[int] = None,
     plot_path: Optional[Path] = None,
+    csv_path: Optional[Path] = None,
 ) -> dict:
     """
     Main evaluation driver.
@@ -464,18 +466,23 @@ def run_evaluation(
 
                 for k in k_values:
                     m = results[model_name][k]
-                    m.recall.append(recall_at_k(result.retrieved_indices, relevant_indices, k))
-                    m.precision.append(precision_at_k(result.retrieved_indices, relevant_indices, k))
-                    m.mrr.append(mean_reciprocal_rank(result.retrieved_indices, relevant_indices))
-                    m.ndcg.append(ndcg_at_k(result.retrieved_indices, relevant_indices, relevance_scores, k))
-                    m.ap.append(average_precision(result.retrieved_indices, relevant_indices))
-                    m.hit_rate.append(hit_rate_at_k(result.retrieved_indices, relevant_indices, k))
+                    top_k = result.retrieved_indices[:k]
+                    m.recall.append(recall_at_k(top_k, relevant_indices, k))
+                    m.precision.append(precision_at_k(top_k, relevant_indices, k))
+                    m.mrr.append(mean_reciprocal_rank(top_k, relevant_indices))
+                    m.ndcg.append(ndcg_at_k(top_k, relevant_indices, relevance_scores, k))
+                    m.ap.append(average_precision(top_k, relevant_indices))
+                    m.hit_rate.append(hit_rate_at_k(top_k, relevant_indices, k))
                     m.query_times_ms.append(result.query_time_ms)
 
     logger.info("Evaluated %d (protocol, regulation) queries across %d models", total_queries, len(evaluators))
 
     # Print results
     _print_results(results, k_values)
+
+    # Save CSV if requested
+    if csv_path:
+        _save_csv(results, k_values, csv_path)
 
     # Generate plots if requested
     if plot_path:
@@ -527,6 +534,31 @@ def _print_results(results: dict, k_values: list[int]):
             s = m.std('recall')
             bar = '█' * int(r * 40) + '░' * (40 - int(r * 40))
             print(f"    k={k:<3}  {bar}  {r:.3f} ± {s:.3f}")
+
+
+def _save_csv(results: dict, k_values: list[int], output_path: Path):
+    """Save aggregated metrics to a CSV file (one row per model × k combination)."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics = ["recall", "precision", "mrr", "ndcg", "ap", "hit_rate", "query_times_ms"]
+    metric_labels = {
+        "recall": "Recall@k", "precision": "Precision@k", "mrr": "MRR",
+        "ndcg": "NDCG@k", "ap": "MAP", "hit_rate": "HitRate", "query_times_ms": "AvgLatency_ms",
+    }
+    fieldnames = ["model", "k"] + [metric_labels[m] for m in metrics] + [f"{metric_labels[m]}_std" for m in metrics]
+
+    with open(output_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for model_name in sorted(results.keys()):
+            for k in sorted(k_values):
+                m = results[model_name][k]
+                row = {"model": model_name, "k": k}
+                for attr in metrics:
+                    row[metric_labels[attr]] = round(m.mean(attr), 6)
+                    row[f"{metric_labels[attr]}_std"] = round(m.std(attr), 6)
+                writer.writerow(row)
+
+    logger.info("CSV results saved to %s", output_path)
 
 
 def _generate_html_report(
@@ -654,6 +686,8 @@ def _generate_plots(results: dict, k_values: list[int], output_path: Path):
         ("precision", "Precision@k", False, axes[0, 1]),
         ("hit_rate",  "Hit Rate@k",  False, axes[0, 2]),
         ("ndcg",      "NDCG@k",      False, axes[1, 0]),
+        ("mrr",       "MRR@k",       False, axes[1, 1]),
+        ("ap",        "MAP@k",       False, axes[1, 2]),
     ]
     for attr, label, primary, ax in k_panels:
         for model in models:
@@ -675,31 +709,6 @@ def _generate_plots(results: dict, k_values: list[int], output_path: Path):
         ax.legend(fontsize=8, framealpha=0.85)
         ax.grid(True, alpha=0.3)
         ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
-
-    # ── k-independent bar charts (MRR, MAP) ──────────────────────────────────
-    bar_panels = [
-        ("mrr", "MRR",               axes[1, 1]),
-        ("ap",  "MAP",               axes[1, 2]),
-    ]
-    x = list(range(len(models)))
-    for attr, label, ax in bar_panels:
-        y   = [results[m][max_k].mean(attr) for m in models]
-        err = [results[m][max_k].std(attr)  for m in models]
-        bars = ax.bar(x, y,
-                      color=[model_colors[m] for m in models],
-                      yerr=err, capsize=5, alpha=0.85,
-                      edgecolor="white", linewidth=0.6)
-        for bar, val in zip(bars, y):
-            ax.text(bar.get_x() + bar.get_width() / 2,
-                    bar.get_height() + 0.015,
-                    f"{val:.3f}", ha="center", va="bottom", fontsize=8)
-        ax.set_xlabel("Model", fontsize=9)
-        ax.set_ylabel(label, fontsize=9)
-        ax.set_title(f"{label}  (k-independent)", fontsize=10)
-        ax.set_xticks(x)
-        ax.set_xticklabels(models, rotation=25, ha="right", fontsize=8)
-        ax.set_ylim(0, 1.12)
-        ax.grid(True, alpha=0.3, axis="y")
 
     plt.tight_layout()
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -742,6 +751,11 @@ def main():
         help="Path for PNG plot output (set to empty string to skip)",
     )
     parser.add_argument(
+        "--csv", "-c",
+        default="test/results/retrieval_results.csv",
+        help="Path for CSV output (set to empty string to skip)",
+    )
+    parser.add_argument(
         "--max-samples",
         type=int,
         default=None,
@@ -766,7 +780,8 @@ def main():
 
     report_path = Path(args.report) if args.report else None
     plot_path = Path(args.plot) if args.plot else None
-    run_evaluation(gt_path, args.models, args.k, report_path, args.max_samples, plot_path)
+    csv_path = Path(args.csv) if args.csv else None
+    run_evaluation(gt_path, args.models, args.k, report_path, args.max_samples, plot_path, csv_path)
 
 
 if __name__ == "__main__":
