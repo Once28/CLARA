@@ -11,12 +11,6 @@ A multi-modal agentic platform built for the MedGemma Impact Challenge. It autom
 
 **CLARA** tackles the critical bottleneck in clinical trials: regulatory compliance checking. By combining **reversed RAG** with an FDA-auditor LLM (MedGemma via Vertex AI), CLARA automates the cross-examination of clinical trial protocols against FDA and HHS regulations.
 
-### Reversed RAG Design
-
-- **Knowledge base:** The **uploaded protocol** is chunked, embedded, and stored in a vector index (Chroma).
-- **Query side:** Each **CFR regulation** (21 CFR Parts 11, 50, 56, 58, 211, 312, 314; 45 CFR Part 46) is used as a query against the protocol index to find which protocol sections address it.
-- **Audit:** The LLM receives, for each regulation, the regulation excerpt and the retrieved protocol sections, and produces a structured compliance breakdown.
-
 So the protocol is the source of truth in the index; regulations are checked against it (rather than the other way around).
 
 ## Getting Started
