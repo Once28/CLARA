@@ -6,7 +6,7 @@
 
 **Justin Zeng** ([LinkedIn](https://www.linkedin.com/in/justin-zeng/)) — Academic experience in bioinformatics and data science; currently a researcher at Columbia's Irving Medical Center. Justin identified the core medical components and built the agentic workflow process to emulate clinical trial protocol review processes. 
 
-**Kennard Mah** ([LinkedIn](https://www.linkedin.com/in/kennardmah/) — Academic experience in human-centered design engineering and data science. Kennard aligned the workflow with human-centered design principles, bridging the technical architecture with practical clinical applications.
+**Kennard Mah** ([LinkedIn](https://www.linkedin.com/in/kennardmah/)) — Academic experience in human-centered design engineering and data science. Kennard aligned the workflow with human-centered design principles, bridging the technical architecture with practical clinical applications.
 
 Both Justin and Kennard contributed to the codebase, UI/UX design, and research into current clinical processes to identify high-impact areas for AI integration.
 
@@ -41,7 +41,7 @@ Clinical trial protocols use highly specialized language — phrases like *"seri
 
 The quality of a RAG system depends critically on its embedding model: the model that converts regulation text and protocol queries into vector representations for semantic search. We evaluated two approaches — a general-purpose sentence embedding model and HAI-DEF's MedSigLIP — to determine which produces higher-quality retrieval for regulatory cross-examination.
 
-**MedSigLIP** is a contrastive vision-language model from the HAI-DEF suite, built on the SigLIP architecture and fine-tuned on medical data. It provides both a vision encoder and a text encoder trained jointly to align medical images with their textual descriptions. We adapted MedSigLIP's text encoder as an embedding function for our vector store, hypothesizing that its exposure to medical terminology during training would yield better semantic representations of regulatory language compared to general-purpose models. The analysis of the model and comparison with other tools is discussed in the Product Feasibility section.
+**MedSigLIP** is a contrastive vision-language model from the HAI-DEF suite, built on the SigLIP architecture and fine-tuned on medical data. It provides both a vision encoder and a text encoder trained jointly to align medical images with their textual descriptions. We adapted MedSigLIP's text encoder as an embedding function for our vector store, hypothesizing that its exposure to medical terminology during training would yield better semantic representations of regulatory language compared to general-purpose models. The analysis of the model and comparison with other tools is discussed in the Product Feasibility section, where we found that despite using MedSigLIP for its HAI-DEF specialization, other text-specialized models outperform on retrieval metrics.
 
 #### Generative Cross-Examination
 
@@ -118,15 +118,17 @@ CLARA does not fine-tune foundation models. Instead, we adapt pre-trained models
 
 Because small language models (4B parameters) frequently produce malformed JSON, we built a multi-stage output parser with four fallback levels: (1) direct JSON parse, (2) regex extraction of the outermost `[...]` array, (3) individual `{...}` object collection, and (4) free-text keyword extraction that infers compliance status from surrounding language. A deduplication pass then merges multiple objects for the same regulation by preserving the worst-case status. This defensive parsing pipeline ensures the frontend always receives valid, structured audit data regardless of model output quality.
 
-**MedSigLIP's text encoder** was adapted as a LangChain `Embeddings` wrapper (`MedSigLIPTextEmbeddings`). SigLIP's text tower produces 768-dimensional L2-normalized embeddings, which we feed directly into ChromaDB's default cosine similarity index. Embedding is performed in batches of 64 to avoid OOM on the ~1,436 regulation chunks, with `max_length=64` to respect SigLIP's positional embedding limit.
+**MedSigLIP's text encoder** was adapted as a LangChain `Embeddings` wrapper (`MedSigLIPTextEmbeddings`). SigLIP's text tower produces 768-dimensional L2-normalized embeddings, which we feed directly into ChromaDB's default cosine similarity index. Embedding is performed in batches of 64 to avoid OOM on the ~1,436 regulation chunks, with `max_length=64` to respect SigLIP's positional embedding limit. However, given the results of our analysis in the retrieval performance, we do believe that a lighter model, such as MiniLM and EmbeddingGemma, can outperform its retrieval and improve with fine-tuning. 
 
 ##### Retrieval Performance Analysis
 
-The quality of CLARA's compliance assessments depends critically on retrieval precision — whether the correct regulatory passages reach MedGemma's context window. We evaluated three embedding strategies against the demands of this specific use case:
+The quality of CLARA's compliance assessments depends critically on retrieval precision — whether the correct regulatory passages reach MedGemma’s context window. We evaluated three embedding strategies under the constraints of long regulatory text, structured CFR sections, and top-k retrieval for compliance grounding.
 
-**`all-MiniLM-L6-v2`** is a widely-used sentence-transformer optimized for text-to-text semantic similarity, with a 512-token context window that comfortably covers our 1,000-character chunks.
+**`all-MiniLM-L6-v2`** is a widely used sentence-transformer optimized for text-to-text semantic similarity, with a 512-token context window that comfortably captures our 1,000-character chunks in full.
 
-**EmbeddingGemma 300M** (`EmbeddingGemma-300m`) is a state-of-the-art embedding model from the Gemma family, achieving strong performance on text retrieval benchmarks. With a large context window and efficient representations, it provides a best-in-class path for text retrieval — capturing full chunk content with rich semantic representations. Available via Vertex AI, it integrates naturally with our existing GCP infrastructure.
+**EmbeddingGemma 300M** (`EmbeddingGemma-300m`) is a modern large-scale embedding model from the Gemma family, supporting up to 2,048 tokens and high-dimensional (3,072-d) representations. It is designed for strong text retrieval performance and integrates directly with Vertex AI, aligning with our GCP-based deployment of MedGemma.
+
+**MedSigLIP (text encoder)** is derived from the SigLIP (Sigmoid Loss for Language–Image Pre-training) family and fine-tuned on medical image–text pairs. While domain-specialized, it is constrained to 64 tokens and optimized for cross-modal (image↔text) contrastive alignment rather than text-to-text ranking.
 
 | | **MedSigLIP (text encoder)** | **all-MiniLM-L6-v2** | **EmbeddingGemma 300M** |
 |---|---|---|---|
@@ -137,15 +139,56 @@ The quality of CLARA's compliance assessments depends critically on retrieval pr
 | **Retrieval objective** | Contrastive (image↔text) | Text-to-text similarity | Text-to-text similarity (SOTA) |
 | **Deployment** | Local (HuggingFace) | Local (HuggingFace) | Vertex AI API |
 
-The key tradeoff is **domain specificity versus retrieval fitness**. MedSigLIP brings medical vocabulary understanding from its training on clinical image–text pairs, but its 64-token context window means regulation chunks (which we split at 1,000 characters with 120-character overlap) are heavily truncated — only the opening ~40–60 words of each chunk influence the embedding. Additionally, its contrastive training objective optimizes for image↔text alignment, not text↔text ranking. `all-MiniLM-L6-v2` captures the full content of each chunk and is purpose-built for text retrieval, but lacks domain-specific training on medical or regulatory language. **EmbeddingGemma 300M represents the best-in-class path forward** — combining a large context window (no truncation), strong retrieval quality, and broad training that includes medical and scientific text, available on Vertex AI alongside our existing MedGemma deployment.
+The primary tradeoff is context capacity and domain specialization:
 
-For a regulation-checking system, we prioritize **high recall** — the cost of missing a relevant regulation (undetected non-compliance reaching FDA/IRB review) far exceeds the cost of retrieving an extra irrelevant passage. Our retrieval strategy reinforces this:
+- **MedSigLIP** brings clinical vocabulary familiarity but truncates the majority of each regulation chunk due to its 64-token limit. Additionally, its contrastive objective is not optimized for fine-grained text ranking.  
+- **MiniLM** captures complete chunks and is purpose-built for semantic text retrieval, despite lacking medical-specific fine-tuning.  
+- **EmbeddingGemma** combines long-context support with high-capacity representations and strong retrieval optimization.
 
-- **Maximal Marginal Relevance (MMR)** with `lambda_mult=0.5` balances relevance against diversity, reducing redundant retrievals so more distinct regulatory sections surface.
-- **Metadata-filtered retrieval** scopes searches to only the user-selected CFR parts (e.g., `{"cfr_part": {"$in": ["21 CFR Part 50", "21 CFR Part 312"]}}`), eliminating cross-regulation noise.
-- **Adaptive k**: we retrieve ~3 chunks per selected regulation (`k = min(3 × |regulations|, 15)`) from a candidate pool of `fetch_k = min(8 × |regulations|, 40)`, tuned to provide sufficient context without overwhelming MedGemma's effective window.
+All three embedding options are readily integrable in our codebase (`vector_store.py` supports hot-swapping), and we provide the infrastructure and result for evaluation against ground-truth regulation mappings derived from our compliant and non-compliant protocol datasets. The infrastructure is designed to include the 8 regulations we tested against, with ground truth protocol to regulation pair to see how accurate the retrieval is using metrics: Recall@k, Precision@k, Maximal Reciprocal Rank (MRR), NDCG@k (Normalized Discount Cumulative Gain), MAP (Mean Average Precision), Hit Rate (% of queries with relevant result in top-k), and Latency. All models were evaluated using cosine similarity over ground-truth protocol–regulation mappings derived from compliant and non-compliant datasets across eight CFR regulations.
 
-All three embedding options are implemented or readily integrable in our codebase (`vector_store.py` supports hot-swapping via Option A/B), and we provide the infrastructure for A/B evaluation against ground-truth regulation mappings derived from our compliant and non-compliant protocol datasets.
+**Table 1: Retrieval Evaluation for Embedding Model Comparison**
+| Metric | **EmbeddingGemma** | **MedSigLIP** | **MiniLM** | **Random** |
+|--------|--------------------|---------------|------------|------------|
+| **Recall@k=5** | 0.3479 | 0.3196 | **0.3987** | 0.1371 |
+| **Precision@k=5** | 0.4113 | 0.3944 | **0.4282** | 0.1070 |
+| **MRR@k=5** | **0.6502** | 0.5998 | 0.6491 | 0.2127 |
+| **NDCG@k=5** | 0.5233 | 0.4729 | **0.5296** | 0.1346 |
+| **MAP@k=5** | **0.2982** | 0.2451 | 0.2971 | 0.0797 |
+| **Hit Rate@k=5** | 0.7465 | 0.7042 | **0.8028** | 0.3521 |
+| **Recall@k=10** | 0.4808 | 0.4293 | **0.5135** | 0.2204 |
+| **Precision@k=10** | 0.3225 | 0.2873 | **0.3324** | 0.0930 |
+| **MRR@k=10** | **0.6603** | 0.6056 | 0.6571 | 0.2299 |
+| **NDCG@k=10** | 0.5274 | 0.4612 | **0.5320** | 0.1570 |
+| **MAP@k=10** | **0.3610** | 0.2892 | 0.3555 | 0.1031 |
+| **Hit Rate@k=10** | 0.8169 | 0.7465 | **0.8592** | 0.4930 |
+| **Recall@k=15** | 0.5762 | 0.4944 | **0.5924** | 0.2702 |
+| **Precision@k=15** | **0.2761** | 0.2366 | 0.2667 | 0.0798 |
+| **MRR@k=15** | **0.6626** | 0.6088 | 0.6592 | 0.2345 |
+| **NDCG@k=15** | **0.5482** | 0.4687 | 0.5389 | 0.1748 |
+| **MAP@k=15** | **0.3926** | 0.3097 | 0.3797 | 0.1125 |
+| **Hit Rate@k=15** | 0.8451 | 0.7887 | **0.8873** | 0.5493 |
+| **Recall@k=20** | 0.6138 | 0.5400 | **0.6346** | 0.3053 |
+| **Precision@k=20** | 0.2317 | 0.2099 | **0.2338** | 0.0732 |
+| **MRR@k=20** | **0.6642** | 0.6103 | 0.6592 | 0.2360 |
+| **NDCG@k=20** | **0.5530** | 0.4803 | 0.5509 | 0.1887 |
+| **MAP@k=20** | **0.4027** | 0.3234 | 0.3959 | 0.1188 |
+| **Hit Rate@k=20** | 0.8732 | 0.8169 | **0.8873** | 0.5775 |
+
+![Retrieval Curve](test/results/retrieval_curves.png)
+
+**1. MiniLM achieves the strongest recall and hit rate across all k.**  At k = 5, 10, 15, and 20, MiniLM consistently delivers the highest Recall@k and Hit Rate@k. This indicates MiniLM is most likely to surface at least one relevant regulation within the top-k — a critical property for compliance systems where missed regulations carry high downstream risk.
+
+**2. EmbeddingGemma slightly outperforms on ranking-sensitive metrics.**  This suggests that when relevant regulations are retrieved, EmbeddingGemma tends to rank them marginally higher on average.
+
+**3. MedSigLIP underperforms despite medical fine-tuning.**  Although MedSigLIP is domain-specialized, it trails both MiniLM and EmbeddingGemma across all major retrieval metrics. The most plausible causes are: severe truncation due to its 64-token limit; optimization for image–text contrastive alignment rather than text–text ranking; reduced effective semantic coverage of long regulatory passages  
+
+This indicates that objective alignment and context capacity outweigh domain-specific fine-tuning for this retrieval task. For a regulation-checking system, we prioritize high recall — the cost of missing a relevant regulation (undetected non-compliance reaching FDA/IRB review) far exceeds the cost of retrieving an additional irrelevant passage. Our retrieval strategy reinforces this priority:
+- Max Marginal Relevance (MMR) with `lambda_mult = 0.5` balances relevance and diversity, reducing redundant chunks so more distinct regulatory sections surface.  
+- Metadata-filtered retrieval scopes search to only user-selected CFR parts (e.g., `{"cfr_part": {"$in": ["21 CFR Part 50", "21 CFR Part 312"]}}`), eliminating cross-regulation noise.  
+- Adaptive k selection retrieves ~3 chunks per selected regulation, where `k = min(3 × |regulations|, 15)` and candidate pool is `fetch_k = min(8 × |regulations|, 40)`
+
+While EmbeddingGemma shows slightly stronger ranking quality (MRR/MAP), MiniLM delivers the highest recall and hit rate across all k, making it the strongest default choice when regulatory coverage is the primary objective. For CLARA’s compliance-focused deployment, where false negatives are costlier than mild ranking inefficiencies, MiniLM currently provides the most robust retrieval backbone. EmbeddingGemma remains a strong alternative, particularly if deeper ranking quality or future scaling considerations become dominant factors.
 
 ##### User-Facing Application Stack
 
