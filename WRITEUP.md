@@ -1,6 +1,6 @@
 ### Project Name
 
-**CLARA (CLinical Audit & Regulation Assistant)** is an agentic platform to automate the regulatory cross-examination of clinical trial protocols, ensuring alignment with federal regulations and global ethical standards.
+**CLARA (CLinical Audit & Regulation Assistant)** is an agentic platform to automate the regulatory cross-examination of clinical trial protocols, ensuring alignment with federal regulations and global ethical standards. Beyond the acronym, the name - “Clara”  - comes from the Latin clarus, meaning clear or bright. This reinforces what we stand for: clarity in complex decisions, trust in high-stakes clinical environments, and a human presence within AI that feels supportive rather than technical. In healthcare, intelligence must be clear, reliable, and approachable — and CLARA embodies all three.
 
 ### Team
 
@@ -226,7 +226,7 @@ CLARA is designed as a **decision-support system, not a decision-making system**
 The system is built on a **modular, immutable DAG architecture** (LangGraph `StateGraph` with typed state). This design enables several concrete extension paths:
 
 - **Regulation expansion:** New CFR parts, ICH-GCP guidelines, or institutional policies can be added to the ChromaDB vector store by extending the `REGULATION_MAP` in `server.py` — no model retraining required.
-- **Embedding model upgrades:** The `vector_store.py` Option A/B pattern allows hot-swapping between MedSigLIP, `all-MiniLM-L6-v2`, and EmbeddingGemma. We plan to implement EmbeddingGemma 300M (`EmbeddingGemma-300m`) via the Vertex AI API as the production embedding model, leveraging its context window and strong retrieval quality while staying within our existing GCP infrastructure.
+- **Embedding model upgrades:** The `vector_store.py` Option A/B pattern allows hot-swapping between MedSigLIP, `all-MiniLM-L6-v2`, and EmbeddingGemma. We plan to implement EmbeddingGemma 300M (`EmbeddingGemma-300m`) via the Vertex AI API as the production embedding model, leveraging its context window and strong retrieval quality while staying within our existing GCP infrastructure. However, as HAI-DEF models improve and outperform non-specialized text embedding models, we would like to explore using them in the future iterations.
 - **Specialized agents:** LangGraph's node-based architecture supports adding domain-specific agents (e.g., budget compliance, site feasibility, pharmacovigilance) as new graph nodes without modifying existing retrieval or audit logic.
 - **Evaluation pipeline:** Our dataset of compliant protocols (sourced from ClinicalTrials.gov) and synthetically generated non-compliant variants (produced by systematically redacting required elements from compliant protocols) provides the ground-truth annotations needed for retrieval recall/precision measurement and end-to-end audit accuracy evaluation. Future work will formalize these into automated regression benchmarks.
 
