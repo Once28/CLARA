@@ -13,7 +13,10 @@
  */
 
 const API_BASE = import.meta.env?.VITE_API_URL || "";
-const USE_MOCK = !API_BASE;
+// Mock mode is only active when explicitly opted in via VITE_USE_MOCK=true.
+// In local dev the Vite proxy forwards /api/* → http://localhost:8000 so
+// API_BASE can stay empty (no cross-origin issues, no CORS config needed).
+const USE_MOCK = import.meta.env?.VITE_USE_MOCK === "true";
 
 // ─── Mock Data Store ─────────────────────────────────────────
 

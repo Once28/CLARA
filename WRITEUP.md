@@ -1,6 +1,6 @@
 ### Project Name
 
-**CLARA (CLinical Audit & Regulation Assistant)** is an agentic platform to automate the regulatory cross-examination of clinical trial protocols, ensuring alignment with federal regulations and global ethical standards. Beyond the acronym, the name - “Clara”  - comes from the Latin clarus, meaning clear or bright. This reinforces what we stand for: clarity in complex decisions, trust in high-stakes clinical environments, and a human presence within AI that feels supportive rather than technical. In healthcare, intelligence must be clear, reliable, and approachable — and CLARA embodies all three.
+**CLARA (CLinical Audit & Regulation Assistant)** 🩺💜 is an agentic platform to automate the regulatory cross-examination of clinical trial protocols, ensuring alignment with federal regulations and global ethical standards. Beyond the acronym, the name - “Clara”  - comes from the Latin clarus, meaning clear or bright. This reinforces what we stand for: clarity in complex decisions, trust in high-stakes clinical environments, and a human presence within AI that feels supportive rather than technical. In healthcare, intelligence must be clear, reliable, and approachable — and CLARA embodies all three.
 
 ### Team
 
