@@ -5,6 +5,7 @@ CFR regulations are used as queries to find which protocol sections address each
 
 import os
 import logging
+from pathlib import Path
 from typing import List
 
 import torch
@@ -153,7 +154,7 @@ class MedSigLIPVertexEmbeddings(Embeddings):
         return self.embed_documents([text])[0]
 
 
-CHROMA_DIR = "./data/chroma_db"
+CHROMA_DIR = str(Path(__file__).parent.parent / "data" / "chroma_db")
 PROTOCOL_COLLECTION = "protocol_chunks"
 
 # Lazy singleton for embeddings (shared for protocol indexing and CFR-as-query)

@@ -8,8 +8,10 @@ The React frontend connects by setting:
     VITE_API_URL=http://localhost:8000
 """
 
-import os, uuid, json, re, logging
+import os, uuid, json, re, logging, time
+from collections import deque
 from datetime import date
+from threading import Lock
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -20,13 +22,14 @@ import io
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from ecfr_client import ECFRClient
-from vector_store import (
+from .ecfr_client import ECFRClient
+from .vector_store import (
     get_embeddings,
     index_protocol,
     query_protocol_for_regulation,
 )
-from medgemma_llm import MedGemmaVertexLLM
+from .medgemma_llm import MedGemmaVertexLLM
+from .gemini_llm import GeminiFlashLLM
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("clara")
@@ -42,6 +45,50 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── Abuse protection ─────────────────────────────────────────
+
+_MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_MB", "10")) * 1024 * 1024
+
+
+class _RateLimiter:
+    """Global in-memory rate limiter: per-minute burst + daily cap."""
+
+    def __init__(self):
+        self._lock = Lock()
+        self._minute_window: deque = deque()
+        self._day_count: int = 0
+        self._day_reset: float = time.time() + 86400
+        # Configurable via env — defaults suit a shared demo instance
+        self.max_per_minute: int = int(os.environ.get("RATE_LIMIT_PER_MINUTE", "3"))
+        self.max_per_day: int = int(os.environ.get("RATE_LIMIT_PER_DAY", "50"))
+
+    def check(self) -> tuple[bool, str]:
+        with self._lock:
+            now = time.time()
+            if now > self._day_reset:
+                self._day_count = 0
+                self._day_reset = now + 86400
+            if self._day_count >= self.max_per_day:
+                return False, (
+                    f"Daily audit limit of {self.max_per_day} reached. "
+                    "Please try again tomorrow."
+                )
+            cutoff = now - 60
+            while self._minute_window and self._minute_window[0] < cutoff:
+                self._minute_window.popleft()
+            if len(self._minute_window) >= self.max_per_minute:
+                wait = int(60 - (now - self._minute_window[0])) + 1
+                return False, (
+                    f"Rate limit: max {self.max_per_minute} audits per minute. "
+                    f"Try again in ~{wait}s."
+                )
+            self._minute_window.append(now)
+            self._day_count += 1
+            return True, ""
+
+
+_rate_limiter = _RateLimiter()
 
 # CFR parts: key (frontend) -> (label, fetcher). Fetched at startup for reversed RAG.
 REGULATION_MAP = {
@@ -62,14 +109,18 @@ _REGULATION_TEXTS: dict[str, str] = {}  # label -> full text, populated at start
 @app.on_event("startup")
 async def startup():
     global _llm, _REGULATION_TEXTS
-    logger.info("Loading LLM (Vertex AI MedGemma)...")
-    _llm = MedGemmaVertexLLM(
-        project=os.environ["GCP_PROJECT_ID"],
-        location=os.environ.get("GCP_REGION", "europe-west4"),
-        endpoint_id=os.environ["VERTEX_ENDPOINT_ID"],
-        temperature=0.1,
-        max_tokens=4096,
-    )
+    if os.environ.get("GEMINI_API_KEY", "").strip():
+        logger.info("Loading LLM (Gemini 1.5 Flash)...")
+        _llm = GeminiFlashLLM(temperature=0.1, max_tokens=4096)
+    else:
+        logger.info("Loading LLM (Vertex AI MedGemma)...")
+        _llm = MedGemmaVertexLLM(
+            project=os.environ["GCP_PROJECT_ID"],
+            location=os.environ.get("GCP_REGION", "europe-west4"),
+            endpoint_id=os.environ["VERTEX_ENDPOINT_ID"],
+            temperature=0.1,
+            max_tokens=4096,
+        )
 
     logger.info("Fetching eCFR regulations (for per-regulation protocol check)...")
     for key, (label, fetcher) in REGULATION_MAP.items():
@@ -415,8 +466,18 @@ async def upload_protocol(
     if _llm is None or not _REGULATION_TEXTS:
         raise HTTPException(503, "Pipeline not initialized yet — server is still starting up.")
 
+    # Rate limit check
+    ok, msg = _rate_limiter.check()
+    if not ok:
+        raise HTTPException(429, msg)
+
     # 1. Extract text
     contents = await file.read()
+    if len(contents) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            413,
+            f"File too large — maximum {_MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
+        )
     if file.filename and file.filename.lower().endswith(".pdf"):
         protocol_text = extract_text_from_pdf(contents)
     else:

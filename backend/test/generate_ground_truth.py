@@ -46,6 +46,13 @@ import argparse
 from pathlib import Path
 from typing import Optional
 
+# MedSigLIP (SigLIP-base) max_position_embeddings = 64 tokens ≈ 300 chars.
+# Using this as the shared chunk size keeps the comparison fair: all models
+# see identically-sized chunks, and no model silently discards content via
+# internal truncation.
+CHUNK_SIZE = 300
+CHUNK_OVERLAP = 50
+
 # ─── Regulation-to-keyword mapping ─────────────────────────────
 # Each CFR part has topics and keywords that a protocol section must contain
 # to be considered "relevant" to that regulation. Two tiers:
@@ -157,10 +164,23 @@ REGULATION_ANNOTATIONS = {
 }
 
 
-def chunk_text(text: str, chunk_size: int = 800, overlap: int = 120) -> list[str]:
+def extract_pdf_text(pdf_path: Path) -> str:
+    """Extract plain text from a PDF using PyPDF2."""
+    try:
+        import PyPDF2
+        with open(pdf_path, "rb") as f:
+            reader = PyPDF2.PdfReader(f)
+            pages = [page.extract_text() or "" for page in reader.pages]
+        return "\n\n".join(p for p in pages if p.strip())
+    except Exception as e:
+        print(f"  Warning: could not extract {pdf_path.name}: {e}")
+        return ""
+
+
+def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
     """
-    Replicate the chunking strategy from vector_store.py:
-    RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=120).
+    Split text into fixed-size chunks mirroring RecursiveCharacterTextSplitter.
+    Defaults use CHUNK_SIZE/CHUNK_OVERLAP (MedSigLIP-compatible 300/50 chars).
     """
     separators = ["\n\n", "\n", ". ", " "]
     chunks = []
@@ -224,8 +244,10 @@ def annotate_chunks(
             if strong_hits > 0:
                 relevant_indices.append(idx)
                 relevance_scores.append(2)  # highly relevant
-            elif weak_hits >= 2:
-                # Need at least 2 weak matches to count as partially relevant
+            elif weak_hits >= 1:
+                # At 300-char chunk size a single weak keyword is a meaningful
+                # signal — the chunk is focused enough that one match indicates
+                # partial regulatory relevance.
                 relevant_indices.append(idx)
                 relevance_scores.append(1)  # partially relevant
 
@@ -259,36 +281,58 @@ def generate_ground_truth(
     """
     samples = []
 
-    # 1. Process compliant protocols
+    # 1. Process compliant protocols — prefer PDFs directly, fall back to .txt
     if protocols_dir.exists():
-        files = sorted(protocols_dir.glob("*.txt"))
-        if not files:
-            # Try PDF text extraction fallback
-            files = sorted(protocols_dir.glob("*.pdf"))
-            print(f"No .txt files found; found {len(files)} PDFs (parse them first with parse.py)")
-
+        # Collect all PDFs recursively (includes samples/ subdir), then .txt files
+        pdf_files = sorted(protocols_dir.glob("**/*.pdf"))
+        txt_files = sorted(protocols_dir.glob("*.txt"))
         if limit:
-            files = files[:limit]
+            pdf_files = pdf_files[:limit]
+            txt_files = txt_files[:limit]
 
         print(f"\n{'='*70}")
         print(f"GROUND TRUTH GENERATION — COMPLIANT PROTOCOLS")
         print(f"{'='*70}")
         print(f"Source: {protocols_dir.resolve()}")
-        print(f"Protocols: {len(files)}")
+        print(f"PDFs: {len(pdf_files)}  TXTs: {len(txt_files)}")
+        print(f"Chunk size: {CHUNK_SIZE} chars / {CHUNK_OVERLAP} overlap  "
+              f"(MedSigLIP 64-token limit)")
         print()
 
-        for f in files:
+        for f in pdf_files:
+            text = extract_pdf_text(f)
+            if not text:
+                continue
+            nct_match = re.search(r"(NCT\d{8})", f.stem)
+            protocol_id = nct_match.group(1) if nct_match else f.stem
+            chunks = chunk_text(text)
+            annotations = annotate_chunks(chunks)
+
+            total_relevant = sum(a["n_relevant"] for a in annotations.values())
+            regs_with_hits = sum(1 for a in annotations.values() if a["n_relevant"] > 0)
+
+            print(f"  {protocol_id:<30} chunks={len(chunks):<5} "
+                  f"annotated={total_relevant:<4} regs_covered={regs_with_hits}/8")
+
+            samples.append({
+                "protocol_id": protocol_id,
+                "source": "compliant",
+                "source_file": str(f.name),
+                "n_chunks": len(chunks),
+                "chunks": chunks,
+                "annotations": annotations,
+            })
+
+        for f in txt_files:
             protocol_id, text = load_protocol_text(f)
             chunks = chunk_text(text)
             annotations = annotate_chunks(chunks)
 
-            # Summary
             total_relevant = sum(a["n_relevant"] for a in annotations.values())
             regs_with_hits = sum(1 for a in annotations.values() if a["n_relevant"] > 0)
 
-            print(f"  {protocol_id:<20} chunks={len(chunks):<5} "
-                  f"annotated_chunks={total_relevant:<4} "
-                  f"regs_covered={regs_with_hits}/8")
+            print(f"  {protocol_id:<30} chunks={len(chunks):<5} "
+                  f"annotated={total_relevant:<4} regs_covered={regs_with_hits}/8")
 
             samples.append({
                 "protocol_id": protocol_id,
@@ -522,8 +566,8 @@ def main():
     parser = argparse.ArgumentParser(description="Generate ground truth for CLARA retrieval evaluation")
     parser.add_argument(
         "--protocols-dir", "-p",
-        default="data/documents/compliant/parsed",
-        help="Directory containing parsed protocol text files",
+        default=str(Path(__file__).parent.parent / "data" / "documents" / "compliant" / "protocols"),
+        help="Directory containing protocol PDFs or parsed .txt files",
     )
     parser.add_argument(
         "--include-non-compliant", "-n",
@@ -532,12 +576,12 @@ def main():
     )
     parser.add_argument(
         "--non-compliant-dir",
-        default="data/documents/non_compliant/parsed",
+        default=str(Path(__file__).parent.parent / "data" / "documents" / "non_compliant" / "parsed"),
         help="Directory containing parsed non-compliant protocol texts",
     )
     parser.add_argument(
         "--output", "-o",
-        default="test/ground_truth/annotations.json",
+        default=str(Path(__file__).parent / "ground_truth" / "annotations.json"),
         help="Output path for annotations JSON",
     )
     parser.add_argument("--limit", "-l", type=int, default=None)

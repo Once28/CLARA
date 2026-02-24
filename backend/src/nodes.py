@@ -1,5 +1,5 @@
 import re
-from prompts import AUDIT_PROMPT
+from .prompts import AUDIT_PROMPT
 
 def retrieval_node(state, retriever):
     """Searches the law for sections relevant to the protocol text."""

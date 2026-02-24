@@ -19,7 +19,7 @@ if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
     import uvicorn
     uvicorn.run(
-        "server:app",
+        "src.server:app",
         host=os.environ.get("HOST", "0.0.0.0"),
         port=port,
         reload=os.environ.get("RELOAD", "").lower() in ("1", "true", "yes"),

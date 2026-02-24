@@ -12,7 +12,7 @@ Compares MedSigLIP, all-MiniLM-L6-v2, and EmbeddingGemma 300M on:
 Architecture:
   For each (protocol, regulation) pair in the ground truth:
     1. Index the protocol chunks using each embedding model
-    2. Use the regulation text as the query (reversed RAG, matching server.py)
+    2. Use the regulation text as the query (RAG, matching server.py)
     3. Compare retrieved chunk indices against ground-truth relevant indices
     4. Compute metrics
 
@@ -30,6 +30,7 @@ Usage:
     python test/evaluate_retrieval.py --report test/results/retrieval_report.html
 """
 
+import csv
 import json
 import math
 import os
@@ -42,6 +43,15 @@ from typing import Optional
 from dataclasses import dataclass, field
 
 import numpy as np
+
+# Load .env from the project root (one level up from test/)
+_env_path = Path(__file__).resolve().parent.parent / ".env"
+if _env_path.exists():
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(_env_path)
+    except ImportError:
+        pass  # python-dotenv not installed; env vars must be set in the shell
 
 logger = logging.getLogger("clara.eval")
 
@@ -164,10 +174,15 @@ class EmbeddingEvaluator:
             from langchain_huggingface import HuggingFaceEmbeddings
             return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         elif self.model_name == "medsiglip":
-            # Import from CLARA's vector_store
-            sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-            from vector_store import MedSigLIPTextEmbeddings
-            return MedSigLIPTextEmbeddings()
+            sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+            if os.environ.get("MEDSIGLIP_ENDPOINT_ID", "").strip():
+                # Model Garden Vertex endpoint takes priority
+                from vector_store import MedSigLIPVertexEmbeddings
+                return MedSigLIPVertexEmbeddings()
+            else:
+                # HuggingFace path: tries real checkpoint, falls back to SigLIP proxy
+                from vector_store import MedSigLIPTextEmbeddings
+                return MedSigLIPTextEmbeddings()
         elif self.model_name == "embeddinggemma":
             return self._load_embeddinggemma()
         elif self.model_name == "random":
@@ -177,34 +192,83 @@ class EmbeddingEvaluator:
 
     def _load_embeddinggemma(self):
         """
-        Load EmbeddingGemma 300M via Vertex AI.
-        Requires GCP credentials and environment variables.
+        Load EmbeddingGemma via Vertex AI.
+
+        If EMBEDDINGGEMMA_ENDPOINT_ID is set, calls the Model Garden custom
+        endpoint directly. Otherwise uses the managed text-embedding-005 API.
+        Both require GCP_PROJECT_ID and gcloud auth application-default login.
         """
         from google.cloud import aiplatform
         from langchain_core.embeddings import Embeddings
 
         project = os.environ.get("GCP_PROJECT_ID", "")
-        region = os.environ.get("GCP_REGION", "europe-west4")
+        endpoint_id = os.environ.get("EMBEDDINGGEMMA_ENDPOINT_ID", "").strip()
+        # Use endpoint-specific region (may differ from the MedGemma GCP_REGION)
+        region = os.environ.get("EMBEDDINGGEMMA_ENDPOINT_REGION") or os.environ.get("GCP_REGION", "europe-west4")
+
         if not project:
             raise ValueError("GCP_PROJECT_ID not set — cannot use EmbeddingGemma")
 
         aiplatform.init(project=project, location=region)
 
-        class EmbeddingGemmaVertexEmbeddings(Embeddings):
-            """Wrapper for EmbeddingGemma 300M on Vertex AI."""
+        if endpoint_id:
+            # Model Garden custom endpoint — full resource name routes to the correct region
+            resource_name = f"projects/{project}/locations/{region}/endpoints/{endpoint_id}"
+            endpoint = aiplatform.Endpoint(resource_name)
+            logger.info("EmbeddingGemma using Model Garden endpoint: %s (%s)", endpoint_id, region)
 
-            def __init__(self):
-                from vertexai.language_models import TextEmbeddingModel
-                self.model = TextEmbeddingModel.from_pretrained("text-embedding-005")
+            class EmbeddingGemmaVertexEmbeddings(Embeddings):
+                def __init__(self, ep):
+                    self._endpoint = ep
 
-            def embed_documents(self, texts: list[str]) -> list[list[float]]:
-                embeddings = self.model.get_embeddings(texts)
-                return [e.values for e in embeddings]
+                @staticmethod
+                def _extract_vector(pred) -> list[float]:
+                    # EmbeddingGemma returns [[float, ...]] — unwrap the outer list
+                    if isinstance(pred, list):
+                        if len(pred) == 1 and isinstance(pred[0], list):
+                            return pred[0]
+                        return pred
+                    if isinstance(pred, dict):
+                        for key in ("embeddings", "embedding", "values", "vector"):
+                            val = pred.get(key)
+                            if isinstance(val, dict):
+                                val = val.get("values") or val.get("vector")
+                            if isinstance(val, list):
+                                return val
+                    raise ValueError(f"Unrecognised prediction shape: {type(pred)}")
 
-            def embed_query(self, text: str) -> list[float]:
-                return self.embed_documents([text])[0]
+                def embed_documents(self, texts: list[str]) -> list[list[float]]:
+                    batch_size = 16  # conservative to stay under payload limits
+                    all_embeddings: list[list[float]] = []
+                    for i in range(0, len(texts), batch_size):
+                        batch = texts[i : i + batch_size]
+                        instances = [{"inputs": t} for t in batch]
+                        response = self._endpoint.predict(instances=instances)
+                        all_embeddings.extend(
+                            self._extract_vector(p) for p in response.predictions
+                        )
+                    return all_embeddings
 
-        return EmbeddingGemmaVertexEmbeddings()
+                def embed_query(self, text: str) -> list[float]:
+                    return self.embed_documents([text])[0]
+
+            return EmbeddingGemmaVertexEmbeddings(endpoint)
+        else:
+            # Managed text-embedding-005 API
+            logger.info("EmbeddingGemma using managed text-embedding-005 API")
+
+            class EmbeddingGemmaManagedEmbeddings(Embeddings):
+                def __init__(self):
+                    from vertexai.language_models import TextEmbeddingModel
+                    self.model = TextEmbeddingModel.from_pretrained("text-embedding-005")
+
+                def embed_documents(self, texts: list[str]) -> list[list[float]]:
+                    return [e.values for e in self.model.get_embeddings(texts)]
+
+                def embed_query(self, text: str) -> list[float]:
+                    return self.embed_documents([text])[0]
+
+            return EmbeddingGemmaManagedEmbeddings()
 
     def retrieve(
         self,
@@ -336,6 +400,8 @@ def run_evaluation(
     k_values: list[int],
     report_path: Optional[Path] = None,
     max_samples: Optional[int] = None,
+    plot_path: Optional[Path] = None,
+    csv_path: Optional[Path] = None,
 ) -> dict:
     """
     Main evaluation driver.
@@ -413,7 +479,15 @@ def run_evaluation(
     # Print results
     _print_results(results, k_values)
 
-    # Generate report if requested
+    # Save CSV if requested
+    if csv_path:
+        _save_csv(results, k_values, csv_path)
+
+    # Generate plots if requested
+    if plot_path:
+        _generate_plots(results, k_values, plot_path)
+
+    # Generate HTML report if requested
     if report_path:
         _generate_html_report(results, k_values, total_queries, len(samples), report_path)
         logger.info("Report saved to %s", report_path)
@@ -459,6 +533,31 @@ def _print_results(results: dict, k_values: list[int]):
             s = m.std('recall')
             bar = '█' * int(r * 40) + '░' * (40 - int(r * 40))
             print(f"    k={k:<3}  {bar}  {r:.3f} ± {s:.3f}")
+
+
+def _save_csv(results: dict, k_values: list[int], output_path: Path):
+    """Save aggregated metrics to a CSV file (one row per model × k combination)."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics = ["recall", "precision", "mrr", "ndcg", "ap", "hit_rate", "query_times_ms"]
+    metric_labels = {
+        "recall": "Recall@k", "precision": "Precision@k", "mrr": "MRR",
+        "ndcg": "NDCG@k", "ap": "MAP", "hit_rate": "HitRate", "query_times_ms": "AvgLatency_ms",
+    }
+    fieldnames = ["model", "k"] + [metric_labels[m] for m in metrics] + [f"{metric_labels[m]}_std" for m in metrics]
+
+    with open(output_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for model_name in sorted(results.keys()):
+            for k in sorted(k_values):
+                m = results[model_name][k]
+                row = {"model": model_name, "k": k}
+                for attr in metrics:
+                    row[metric_labels[attr]] = round(m.mean(attr), 6)
+                    row[f"{metric_labels[attr]}_std"] = round(m.std(attr), 6)
+                writer.writerow(row)
+
+    logger.info("CSV results saved to %s", output_path)
 
 
 def _generate_html_report(
@@ -550,13 +649,103 @@ def _generate_html_report(
         f.write(html)
 
 
+def _generate_plots(results: dict, k_values: list[int], output_path: Path):
+    """
+    Save a 2×3 grid of metric plots to output_path (PNG).
+
+    Top row   — k-varying line plots (Recall@k ⭐, Precision@k, Hit Rate@k)
+    Bottom row — k-varying NDCG@k + k-independent bar charts (MRR, MAP)
+
+    Each line plot has a ±1 std shaded band.
+    """
+    try:
+        import matplotlib
+        matplotlib.use("Agg")  # non-interactive backend, safe for all environments
+        import matplotlib.pyplot as plt
+        import matplotlib.ticker as ticker
+    except ImportError:
+        logger.warning("matplotlib not installed — skipping plots. Run: pip install matplotlib")
+        return
+
+    models = sorted(results.keys())
+    k_sorted = sorted(k_values)
+    max_k = max(k_sorted)
+
+    # One distinct color per model (works for up to ~8 models)
+    _palette = ["#e94560", "#0f3460", "#2ec4b6", "#ff9f1c", "#533483", "#44cf6c", "#f4a261", "#adb5bd"]
+    model_colors = {m: _palette[i % len(_palette)] for i, m in enumerate(models)}
+
+    fig, axes = plt.subplots(2, 3, figsize=(16, 9))
+    fig.suptitle("CLARA Retrieval Evaluation — Embedding Model Comparison",
+                 fontsize=13, fontweight="bold")
+
+    # ── k-varying line plots ──────────────────────────────────────────────────
+    k_panels = [
+        ("recall",    "Recall@k",    True,  axes[0, 0]),
+        ("precision", "Precision@k", False, axes[0, 1]),
+        ("hit_rate",  "Hit Rate@k",  False, axes[0, 2]),
+        ("ndcg",      "NDCG@k",      False, axes[1, 0]),
+    ]
+    for attr, label, primary, ax in k_panels:
+        for model in models:
+            y   = [results[model][k].mean(attr) for k in k_sorted]
+            err = [results[model][k].std(attr)  for k in k_sorted]
+            lo  = [max(0.0, v - e) for v, e in zip(y, err)]
+            hi  = [min(1.0, v + e) for v, e in zip(y, err)]
+            ax.plot(k_sorted, y,
+                    marker="o", markersize=4,
+                    linewidth=2.5 if primary else 1.8,
+                    label=model, color=model_colors[model])
+            ax.fill_between(k_sorted, lo, hi, alpha=0.12, color=model_colors[model])
+
+        ax.set_xlabel("k  (chunks retrieved)", fontsize=9)
+        ax.set_ylabel(label, fontsize=9)
+        ax.set_title(f"{label}  ⭐" if primary else label,
+                     fontsize=10, fontweight="bold" if primary else "normal")
+        ax.set_ylim(0, 1.08)
+        ax.legend(fontsize=8, framealpha=0.85)
+        ax.grid(True, alpha=0.3)
+        ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+
+    # ── k-independent bar charts (MRR, MAP) ──────────────────────────────────
+    bar_panels = [
+        ("mrr", "MRR",               axes[1, 1]),
+        ("ap",  "MAP",               axes[1, 2]),
+    ]
+    x = list(range(len(models)))
+    for attr, label, ax in bar_panels:
+        y   = [results[m][max_k].mean(attr) for m in models]
+        err = [results[m][max_k].std(attr)  for m in models]
+        bars = ax.bar(x, y,
+                      color=[model_colors[m] for m in models],
+                      yerr=err, capsize=5, alpha=0.85,
+                      edgecolor="white", linewidth=0.6)
+        for bar, val in zip(bars, y):
+            ax.text(bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() + 0.015,
+                    f"{val:.3f}", ha="center", va="bottom", fontsize=8)
+        ax.set_xlabel("Model", fontsize=9)
+        ax.set_ylabel(label, fontsize=9)
+        ax.set_title(f"{label}  (k-independent)", fontsize=10)
+        ax.set_xticks(x)
+        ax.set_xticklabels(models, rotation=25, ha="right", fontsize=8)
+        ax.set_ylim(0, 1.12)
+        ax.grid(True, alpha=0.3, axis="y")
+
+    plt.tight_layout()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
+    plt.close()
+    logger.info("Plots saved to %s", output_path)
+
+
 # ─── CLI ──────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate CLARA retrieval strategies")
     parser.add_argument(
         "--ground-truth", "-g",
-        default="test/ground_truth/annotations_full.json",
+        default=str(Path(__file__).parent / "ground_truth" / "annotations_full.json"),
         help="Path to ground truth JSON (with full chunks)",
     )
     parser.add_argument(
@@ -570,13 +759,23 @@ def main():
         "--k", "-k",
         nargs="+",
         type=int,
-        default=[3, 5, 10],
-        help="Values of k for top-k retrieval metrics",
+        default=[1, 2, 3, 5, 7, 10, 15, 20],
+        help="Values of k for top-k retrieval metrics (more values → smoother curves)",
     )
     parser.add_argument(
         "--report", "-r",
-        default="test/results/retrieval_report.html",
+        default=str(Path(__file__).parent / "results" / "retrieval_report.html"),
         help="Path for HTML report output",
+    )
+    parser.add_argument(
+        "--plot", "-p",
+        default=str(Path(__file__).parent / "results" / "retrieval_curves.png"),
+        help="Path for PNG plot output (set to empty string to skip)",
+    )
+    parser.add_argument(
+        "--csv", "-c",
+        default=str(Path(__file__).parent / "results" / "retrieval_results.csv"),
+        help="Path for CSV output (set to empty string to skip)",
     )
     parser.add_argument(
         "--max-samples",
@@ -602,7 +801,9 @@ def main():
         sys.exit(1)
 
     report_path = Path(args.report) if args.report else None
-    run_evaluation(gt_path, args.models, args.k, report_path, args.max_samples)
+    plot_path = Path(args.plot) if args.plot else None
+    csv_path = Path(args.csv) if args.csv else None
+    run_evaluation(gt_path, args.models, args.k, report_path, args.max_samples, plot_path, csv_path)
 
 
 if __name__ == "__main__":

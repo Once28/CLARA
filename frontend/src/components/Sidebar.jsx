@@ -15,6 +15,7 @@ export default function Sidebar({ audits, selectedId, onSelect, collapsed, onTog
   return (
     <div
       className="sidebar liquid-glass"
+      data-tutorial="sidebar"
       style={{
         width: collapsed ? 56 : 260,
         minWidth: collapsed ? 56 : 260,

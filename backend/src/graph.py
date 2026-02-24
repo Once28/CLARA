@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph, END
-from state import AgentState
-from nodes import retrieval_node, audit_node
+from .state import AgentState
+from .nodes import retrieval_node, audit_node
 from functools import partial
 
 def create_rip_graph(retriever, llm):

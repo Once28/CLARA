@@ -129,7 +129,7 @@ def build_markdown_table(data: dict, k: int) -> str:
 
 
 def main():
-    csv_path = Path("test/results/retrieval_results.csv")
+    csv_path = Path(__file__).parent / "results" / "retrieval_results.csv"
     if not csv_path.exists():
         print(f"CSV not found: {csv_path}")
         print("Run evaluate_retrieval.py first to generate it.")
@@ -138,7 +138,7 @@ def main():
     data = load_csv(csv_path)
     print(f"Loaded results for {len(data)} models from {csv_path}")
 
-    plot(data, Path("test/results/retrieval_curves.png"))
+    plot(data, Path(__file__).parent / "results" / "retrieval_curves.png")
 
     for k in K_VALUES:
         print(f"\n## Results @ k = {k}\n")

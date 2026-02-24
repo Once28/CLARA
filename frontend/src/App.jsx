@@ -5,6 +5,8 @@ import AuditCard from "./components/AuditCard";
 import ScoreChart from "./components/ScoreChart";
 import SummaryPanel from "./components/SummaryPanel";
 import UploadModal from "./components/UploadModal";
+import ComingSoonModal from "./components/ComingSoonModal";
+import Tutorial from "./components/Tutorial";
 import { useAudits } from "./hooks/useAudits";
 import "./styles/global.css";
 
@@ -77,6 +79,8 @@ export default function App() {
   } = useAudits();
 
   const [showUpload, setShowUpload] = useState(false);
+  const [showComingSoon, setShowComingSoon] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [splashDone, setSplashDone] = useState(false);
 
@@ -99,8 +103,9 @@ export default function App() {
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <Header
           onUploadClick={() => setShowUpload(true)}
-          onCreateClick={() => setShowUpload(true)}
+          onCreateClick={() => setShowComingSoon(true)}
           onClearAll={clearAll}
+          onTourClick={() => setShowTutorial(true)}
         />
 
         {/* Error banner */}
@@ -130,7 +135,7 @@ export default function App() {
           }}
         >
           {/* ── Left Panel: Audit Cards ── */}
-          <div className="scroll-panel" style={{ overflowY: "auto", paddingRight: 8 }}>
+          <div className="scroll-panel" data-tutorial="audit-cards" style={{ overflowY: "auto", paddingRight: 8 }}>
             {loading ? (
               <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-muted)" }}>
                 Loading audits...
@@ -181,6 +186,7 @@ export default function App() {
             {/* Score chart */}
             {scoreHistory.length > 0 && (
               <div
+                data-tutorial="score-chart"
                 className="stagger-in right-panel-card"
                 style={{
                   animationDelay: "0.15s",
@@ -201,7 +207,7 @@ export default function App() {
             )}
 
             {/* Summary insights */}
-            <div className="stagger-in" style={{ animationDelay: "0.25s" }}>
+            <div data-tutorial="summary-panel" className="stagger-in" style={{ animationDelay: "0.25s" }}>
               <SummaryPanel audit={selectedAudit} />
             </div>
           </div>
@@ -214,6 +220,18 @@ export default function App() {
         onClose={() => setShowUpload(false)}
         onUpload={uploadProtocol}
         uploading={uploading}
+      />
+
+      {/* Coming soon: protocol builder */}
+      <ComingSoonModal
+        open={showComingSoon}
+        onClose={() => setShowComingSoon(false)}
+      />
+
+      {/* Guided tour */}
+      <Tutorial
+        open={showTutorial}
+        onClose={() => setShowTutorial(false)}
       />
     </div>
   );
