@@ -3,15 +3,13 @@
   CLARA: CLinical Audit & Regulatory Assistant 🩺💜
 </h1>
 
-A multi-modal agentic platform built for the MedGemma Impact Challenge. CLARA automates the regulatory cross-examination of clinical trial protocols, ensuring alignment with **21 CFR** (Parts 11, 50, 56, 58, 211, 312, 314, etc.) and **45 CFR Part 46** (Common Rule) before a single patient is enrolled.
-
- Beyond the acronym, the name - “Clara”  - comes from the Latin clarus, meaning clear or bright. This reinforces what we stand for: clarity in complex decisions, trust in high-stakes clinical environments, and a human presence within AI that feels supportive rather than technical. In healthcare, intelligence must be clear, reliable, and approachable — and CLARA embodies all three.
+CLARA, derived from the latin _Clarus_, is an agentic platform built for the MedGemma Impact Challenge. CLARA automates the regulatory cross-examination of clinical trial protocols, tested on **21 CFR** (Parts 11, 50, 56, 58, 211, 312, 314, etc.) and **45 CFR Part 46** (Common Rule). The name CLARA and term _Clarus_ reinforces what we stand for: clarity in complex decisions, trust in high-stakes clinical environments, and a human presence within AI that feels supportive rather than technical. In healthcare, intelligence must be clear, reliable, and approachable — and CLARA embodies all three.
 
 ![CLARA System Architecture](data/md/CLARA.png)
 <p align="center"><em>Figure 1: CLARA System Architecture</em></p>
 
 
-**CLARA** tackles the critical bottleneck in clinical trials: regulatory compliance checking. By combining **reversed RAG** with an FDA-auditor LLM (MedGemma via Vertex AI), CLARA automates the cross-examination of clinical trial protocols against FDA and HHS regulations.
+CLARA tackles the critical bottleneck in clinical trials: regulatory compliance checking. By combining RAG with an FDA-auditor LLM (MedGemma via Vertex AI), CLARA automates the cross-examination of clinical trial protocols against FDA and HHS regulations.
 
 So the protocol is the source of truth in the index; regulations are checked against it (rather than the other way around).
 
