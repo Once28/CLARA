@@ -5,7 +5,7 @@
 
 CLARA, derived from the latin _Clarus_, is an agentic platform built for the MedGemma Impact Challenge. CLARA automates the regulatory cross-examination of clinical trial protocols, tested on **21 CFR** (Parts 11, 50, 56, 58, 211, 312, 314, etc.) and **45 CFR Part 46** (Common Rule). The name CLARA and term _Clarus_ reinforces what we stand for: clarity in complex decisions, trust in high-stakes clinical environments, and a human presence within AI that feels supportive rather than technical. In healthcare, intelligence must be clear, reliable, and approachable — and CLARA embodies all three.
 
-![CLARA System Architecture](data/md/CLARA.png)
+![CLARA System Architecture](data/md/FlowDiagram.png)
 <p align="center"><em>Figure 1: CLARA System Architecture</em></p>
 
 
